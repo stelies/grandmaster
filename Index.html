@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Grandmaster's Study</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ez-color: rgba(34, 197, 94, 0.85);
+            --ez-glow: rgba(34, 197, 94, 0.5);
+        }
+        body {
+            font-family: 'Playfair Display', Georgia, serif;
+            background: linear-gradient(to bottom, #0a0705, #050302);
+            color: #d1c0b0;
+            overflow: hidden;
+            margin: 0;
+            height: 100vh;
+            user-select: none;
+        }
+        .gothic-title {
+            font-family: 'Cinzel', serif;
+            letter-spacing: 0.15em;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+        .board-frame {
+            background: linear-gradient(135deg, #2b1308 0%, #120502 100%);
+            box-shadow: inset 0px 0px 30px #000, 0px 20px 50px rgba(0,0,0,0.9), 0 0 100px rgba(0,0,0,0.8);
+            border: 3px solid #0f0502;
+            border-radius: 6px;
+            position: relative;
+            z-index: 10;
+        }
+        .light-square { background: radial-gradient(circle at center, #e0d0b8 0%, #b8a385 60%, #9e8766 100%); box-shadow: inset 0 0 12px rgba(0,0,0,0.3); }
+        .dark-square { background: radial-gradient(circle at center, #3d2415 0%, #201109 60%, #140904 100%); box-shadow: inset 0 0 18px rgba(0,0,0,0.7); }
+        .void-square { background: #030101; box-shadow: inset 0 0 30px #000; border: 1px solid #1a0505; }
+        
+        .blood-stain::after {
+            content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at 50% 50%, #610202 0%, #300101 40%, transparent 80%);
+            mix-blend-mode: multiply; opacity: 0.85; pointer-events: none; z-index: 2;
+        }
+
+        .chess-piece { position: relative; z-index: 20; cursor: pointer; transition: transform 0.25s; }
+        .chess-piece svg { filter: drop-shadow(0px 6px 5px rgba(0,0,0,0.75)); width: 100%; height: 100%; }
+        .chess-piece:hover { transform: scale(1.1) translateY(-5px); }
+        .warped-piece svg { filter: url(#flesh-warp) drop-shadow(0px 8px 6px rgba(0,0,0,0.9)); }
+
+        .ez-highlight { box-shadow: inset 0 0 25px 2px var(--ez-color) !important; animation: pulse-ez 2s infinite ease-in-out; }
+        @keyframes pulse-ez { 0%, 100% { box-shadow: inset 0 0 15px var(--ez-glow); } 50% { box-shadow: inset 0 0 35px var(--ez-color); } }
+
+        .ui-panel { background: linear-gradient(to bottom right, #170f0b, #0c0705); border: 1px solid #2a1b14; box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 10px 20px rgba(0,0,0,0.6); }
+        .eval-jitter { animation: jitter 0.1s infinite; }
+        @keyframes jitter { 0%, 100% { transform: translateY(0); opacity: 1; } 50% { transform: translateY(1px); opacity: 0.9; } }
+
+        #flesh-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 15; mix-blend-mode: hard-light; opacity: 0; transition: opacity 4s ease-in; }
+        .selected { background: radial-gradient(circle at center, rgba(200, 150, 50, 0.4), transparent) !important; box-shadow: inset 0 0 20px rgba(200, 150, 50, 0.6) !important; }
+
+        /* Endgames & Overlays */
+        #oblivion-screen { pointer-events: none; opacity: 0; transition: opacity 5s ease-in; background: radial-gradient(circle at center, #1a0505, #000); }
+        #flesh-maw-screen { pointer-events: none; opacity: 0; transition: opacity 1.2s ease-in-out; background: radial-gradient(circle at center, #2a0f08, #000); }
+        #rogue-victory-screen { pointer-events: none; opacity: 0; transition: opacity 2s ease-in; background: radial-gradient(circle at center, #1a1404, #000); }
+        .resurrect-btn-victory {
+            border: 1px solid #6b5410;
+            color: #d4af37;
+            box-shadow: inset 0 0 15px rgba(212,175,55,0.25), 0 0 20px rgba(0,0,0,0.6);
+        }
+        .resurrect-btn-victory:hover {
+            color: #ffe27a;
+            box-shadow: inset 0 0 25px rgba(212,175,55,0.5), 0 0 30px rgba(212,175,55,0.4);
+            text-shadow: 0 0 10px rgba(255,226,122,0.8);
+        }
+        .resurrect-btn {
+            font-family: 'Cinzel', serif;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            padding: 0.75rem 2.5rem;
+            margin-top: 2rem;
+            background: linear-gradient(135deg, #1a0505, #2b0808);
+            border: 1px solid #610202;
+            color: #b8453a;
+            font-size: 0.8rem;
+            cursor: pointer;
+            box-shadow: inset 0 0 15px rgba(97,2,2,0.4), 0 0 20px rgba(0,0,0,0.6);
+            transition: all 0.4s ease;
+        }
+        .resurrect-btn:hover {
+            background: linear-gradient(135deg, #2b0808, #4a0a0a);
+            color: #ff6b5e;
+            box-shadow: inset 0 0 25px rgba(97,2,2,0.6), 0 0 30px rgba(97,2,2,0.5);
+            text-shadow: 0 0 10px rgba(255,80,60,0.8);
+        }
+        #maze-container { display: none; opacity: 0; transition: opacity 1s; background: #000; font-family: monospace; }
+        #maze-canvas { width: 100%; height: 100%; image-rendering: pixelated; filter: contrast(1.2) saturate(1.5) sepia(0.3); }
+        .glitch-fx { animation: chromaticGlitch 0.2s forwards; }
+        @keyframes chromaticGlitch { 
+            0% { filter: drop-shadow(5px 0 0 red) drop-shadow(-5px 0 0 blue) invert(1); transform: scale(1.05); } 
+            100% { filter: none; transform: scale(1); } 
+        }
+    </style>
+</head>
+<body class="flex flex-col">
+    <svg style="width:0;height:0;position:absolute;">
+        <defs>
+            <filter id="flesh-warp">
+                <feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="3" result="noise" id="turb"/>
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G" id="disp"/>
+            </filter>
+        </defs>
+    </svg>
+
+    <div class="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,0.95)_100%)] z-40"></div>
+    
+    <div id="oblivion-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center text-[#610202]">
+        <h1 class="gothic-title text-6xl tracking-widest mb-4">OBLIVION</h1>
+        <p class="text-xl font-serif italic text-[#8c6b54]" id="oblivion-msg">The Grandmaster claims another.</p>
+        <button id="resurrect-btn-oblivion" class="resurrect-btn">Ressurect</button>
+    </div>
+
+    <div id="flesh-maw-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center text-[#c9a98a]">
+        <h1 class="gothic-title text-6xl tracking-widest mb-4 text-[#8c1c1c]">DEVOURED</h1>
+        <p class="text-xl font-serif italic text-[#c08060] max-w-lg text-center px-8" id="flesh-maw-msg">The mass above does not discriminate between kings.</p>
+    </div>
+
+    <div id="maze-container" class="fixed inset-0 z-50 flex items-center justify-center">
+        <canvas id="maze-canvas" width="640" height="480"></canvas>
+        <div class="absolute bottom-10 text-center w-full text-white tracking-[0.3em] opacity-50 animate-pulse">W A S D TO FIND THE RIFT</div>
+    </div>
+
+    <div id="rogue-container" class="fixed inset-0 z-50" style="display:none; background:#050001;">
+        <canvas id="rogue-canvas" style="width:100%; height:100%; display:block;"></canvas>
+        <div id="rogue-damage-flash" class="fixed inset-0 pointer-events-none" style="background:#8c1c1c; opacity:0; transition:opacity 0.25s ease-out; z-index:51;"></div>
+        <div class="absolute top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none w-full">
+            <h1 class="gothic-title text-3xl tracking-widest text-[#b8453a]">THE BOARD HAS RISEN</h1>
+            <p class="text-xs tracking-[0.4em] text-[#8c6b54] opacity-70 mt-2 animate-pulse">CLICK TO LOOK -- WASD TO ATTACK -- THE WALLS ARE CLOSING</p>
+        </div>
+        <div id="rogue-hp" class="absolute bottom-8 left-1/2 -translate-x-1/2 text-center pointer-events-none tracking-[0.5em] text-[#b8453a] gothic-title text-sm"></div>
+    </div>
+
+    <div id="rogue-victory-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center text-[#d4af37]">
+        <h1 class="gothic-title text-6xl tracking-widest mb-4">THE LAST KING</h1>
+        <p class="text-xl font-serif italic text-[#8c6b54]">Every other piece lies still. The board is yours.</p>
+        <button id="resurrect-btn-victory" class="resurrect-btn resurrect-btn-victory">Ressurect</button>
+    </div>
+
+    <header class="w-full py-4 px-8 border-b border-[#2d1c14] bg-[#0c0705] flex items-center justify-between z-30 relative ui-panel">
+        <div>
+            <h1 class="gothic-title text-2xl font-bold text-[#d1c0b0] tracking-widest uppercase text-shadow-md">The Chess Club</h1>
+            <p class="text-xs text-[#8c6b54] italic font-serif">Academic Regulations Apply</p>
+        </div>
+        <div class="flex items-center gap-4">
+            <button id="ez-toggle" class="px-5 py-2 text-xs tracking-widest border border-[#166534] bg-[#052e16] text-[#4ade80] hover:bg-[#14532d] transition-all rounded uppercase shadow-[inset_0_0_10px_rgba(74,222,128,0.2)]">EZ Mode: ON</button>
+        </div>
+    </header>
+
+    <main id="main-content" class="flex-grow flex items-center justify-center gap-8 p-8 relative z-20">
+        <div class="w-48 flex flex-col gap-6 h-[600px]">
+            <div class="ui-panel p-4 rounded flex flex-col items-center justify-center shadow-2xl">
+                <span class="text-[10px] uppercase tracking-widest text-[#8c6b54] mb-2" id="ai-label">Grandmaster</span>
+                <span class="text-sm font-mono text-[#610202] opacity-0 transition-opacity" id="thinking-indicator">Contemplating...</span>
+            </div>
+            
+            <div class="flex-grow ui-panel p-2 rounded flex flex-col items-center shadow-2xl overflow-hidden relative">
+                <span class="text-[10px] uppercase tracking-widest text-[#8c6b54] mb-2 z-10">Eval</span>
+                <div id="eval-bar-container" class="w-full flex-grow bg-[#2b1b12] rounded relative flex flex-col justify-end overflow-hidden shadow-[inset_0_0_15px_rgba(0,0,0,1)]">
+                    <div id="eval-bar-black" class="w-full bg-[#0a0503] transition-all duration-1000 ease-in-out absolute top-0" style="height: 50%;"></div>
+                    <div id="eval-bar-white" class="w-full bg-[#d1c0b0] transition-all duration-1000 ease-in-out absolute bottom-0" style="height: 50%;"></div>
+                </div>
+                <span id="eval-score" class="text-xs font-mono text-[#8c6b54] mt-2 z-10 font-bold">+0.0</span>
+            </div>
+
+            <div class="ui-panel p-4 rounded flex flex-col items-center justify-center shadow-2xl">
+                <span class="text-[10px] uppercase tracking-widest text-[#8c6b54] mb-2">Challenger</span>
+            </div>
+        </div>
+
+        <div class="board-frame p-6 flex items-center justify-center">
+            <div class="relative w-[600px] h-[600px]">
+                <canvas id="flesh-canvas"></canvas>
+                <div id="chessboard" class="grid grid-cols-8 grid-rows-8 w-full h-full relative z-20 shadow-2xl border border-[#000]"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ==========================================
+        // ASSETS, CONSTANTS & STATE
+        // ==========================================
+        const SVGS = {
+            'P': '<svg viewBox="0 0 45 45"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-.83.65-1.41 1.63-1.41 2.75 0 1.93 1.57 3.5 3.5 3.5h4c1.93 0 3.5-1.57 3.5-3.5 0-1.12-.58-2.1-1.41-2.75C28.06 24.84 29 23.03 29 21c0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" stroke-width="1.5"/></svg>',
+            'R': '<svg viewBox="0 0 45 45"><path d="M9 39h27v-3H9v3zm3-13v7h21v-7H12zm2.5-11h16l1.5 8h-19l1.5-8zM12 9v4h4V9h5v4h3V9h3v4h5V9h4v4h4V9H12z" stroke-width="1.5"/></svg>',
+            'N': '<svg viewBox="0 0 45 45"><path d="M22 10c-5 0-11 3-11 11 0 3 2.5 6 4.5 7.5-1 1-1.5 2.5-1.5 4 0 2 2 3.5 4 3.5h11c3 0 5-2.5 5-5.5 0-3.5-3.5-7-3.5-7l.5-4.5c.5-1 1.5-2 1.5-3.5 0-3-4-6-10-6z" stroke-width="1.5"/></svg>',
+            'B': '<svg viewBox="0 0 45 45"><path d="M9 36h27v-3H9v3zm13.5-30c-4 0-7 3-7 8 0 2.5 1.5 5.5 3.5 7.5 1.5 1.5 3.5 4.5 3.5 6.5h-4v3h10v-3h-4c0-2 2-5 3.5-6.5 2-2 3.5-5 3.5-7.5 0-5-3-8-7-8z" stroke-width="1.5"/><circle cx="22.5" cy="5" r="2"/></svg>',
+            'Q': '<svg viewBox="0 0 45 45"><path d="M9 37h27v-3H9v3zm3.5-17l-3-10 7 4 6-8 6 8 7-4-3 10H12.5zM9 22h27v3H9v-3z" stroke-width="1.5"/><circle cx="9.5" cy="8" r="1.5"/><circle cx="16.5" cy="12" r="1.5"/><circle cx="22.5" cy="4" r="1.5"/><circle cx="28.5" cy="12" r="1.5"/><circle cx="35.5" cy="8" r="1.5"/></svg>',
+            'K': '<svg viewBox="0 0 45 45"><path d="M9 38h27v-3H9v3zm13.5-31v4m-3.5-2h7m-3.5 2c-4 0-8 3-8 9.5 0 3 2.5 6.5 4.5 8.5h7c2-2 4.5-5.5 4.5-8.5 0-6.5-4-9.5-8-9.5z" stroke-width="1.5"/></svg>'
+        };
+        const THEMES = { 'w': { fill: '#e6d8c3', stroke: '#1c0f0a' }, 'b': { fill: '#140a05', stroke: '#8c7058' } };
+        function getPieceSVG(color, type) { return SVGS[type].replace('<svg ', `<svg fill="${THEMES[color].fill}" stroke="${THEMES[color].stroke}" `); }
+
+        const initialFenRows = [
+            ['bR','bN','bB','bQ','bK','bB','bN','bR'], ['bP','bP','bP','bP','bP','bP','bP','bP'],
+            [null,null,null,null,null,null,null,null], [null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null], [null,null,null,null,null,null,null,null],
+            ['wP','wP','wP','wP','wP','wP','wP','wP'], ['wR','wN','wB','wQ','wK','wB','wN','wR']
+        ];
+        function getInitialBoard() {
+            let b = Array(8).fill().map(() => Array(8).fill(null));
+            for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
+                if(initialFenRows[r][c]) {
+                    let piece = { color: initialFenRows[r][c][0], type: initialFenRows[r][c][1] };
+                    if(piece.type === 'R') piece.curseUsed = false; // each Rook gets ONE snipe
+                    b[r][c] = piece;
+                }
+            }
+            return b;
+        }
+
+        let board = getInitialBoard();
+        let tileStatus = Array(8).fill().map(() => Array(8).fill(0)); // 0: Normal, 1: Blood, 2: Void
+        let fullMoves = 1;
+        let isWhiteTurn = true;
+        let selectedSq = null;
+        let ezMode = true;
+        let ezMove = null;
+        let gamePhase = 0; // 0=Norm, 1=A, 2=B, 3=Flesh
+        let gameActive = true;
+        let aiThinking = false;
+        
+        // Phase 3 Variables
+        let fleshConsumedRows = 0; 
+        let lastConsumeTime = 0;
+        let mazeActive = false;
+
+        // A king lost to the Flesh doesn't end the match -- but checkEndgame must know not to re-trigger.
+        let kingDevoured = {w: false, b: false};
+
+        // The Castle Curse: invoking it shocks the eval bar against whoever used it.
+        let curseShock = 0;
+        const CURSE_PENALTY = 700;
+
+        // Phase 4: The Rogue Endgame (Three.js)
+        let rogueActive = false;
+        let rogueHP = 3;
+
+        // ==========================================
+        // PROCEDURAL AUDIO ENGINE
+        // ==========================================
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let ambientOsc;
+        
+        function initAudio() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            if(!ambientOsc) {
+                ambientOsc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                ambientOsc.frequency.value = 50;
+                gain.gain.value = 0.05;
+                ambientOsc.connect(gain); gain.connect(audioCtx.destination); ambientOsc.start();
+            }
+        }
+
+        function playHeartbeat() {
+            if(!aiThinking || !gameActive || mazeActive) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.frequency.setValueAtTime(45 + (gamePhase * 10), now);
+            osc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.5, now + 0.1);
+            gain.gain.linearRampToValueAtTime(0, now + 0.3);
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start(now); osc.stop(now + 0.4);
+            setTimeout(playHeartbeat, 1000 - (gamePhase * 150));
+        }
+
+        function playThud(isCapture) {
+            if(audioCtx.state === 'suspended') return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = isCapture ? 'sawtooth' : 'triangle';
+            osc.frequency.setValueAtTime(isCapture ? 150 : 100, now);
+            osc.frequency.exponentialRampToValueAtTime(40, now + (isCapture ? 0.2 : 0.1));
+            gain.gain.setValueAtTime(isCapture ? 0.6 : 0.4, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + (isCapture ? 0.3 : 0.15));
+            if(isCapture) {
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'lowpass'; filter.frequency.value = 800;
+                osc.connect(filter).connect(gain).connect(audioCtx.destination);
+            } else {
+                osc.connect(gain).connect(audioCtx.destination);
+            }
+            osc.start(now); osc.stop(now + 0.4);
+        }
+
+        function playFleshCrunch() {
+            if(audioCtx.state === 'suspended') return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square'; osc.frequency.setValueAtTime(50, now);
+            gain.gain.setValueAtTime(1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+            
+            // White noise burst for crunch
+            const bufferSize = audioCtx.sampleRate * 0.5;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            const noiseFilter = audioCtx.createBiquadFilter();
+            noiseFilter.type = 'bandpass'; noiseFilter.frequency.value = 1000;
+            const noiseGain = audioCtx.createGain();
+            noiseGain.gain.setValueAtTime(0.8, now); noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            
+            noise.connect(noiseFilter).connect(noiseGain).connect(audioCtx.destination);
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start(now); osc.stop(now + 0.5);
+            noise.start(now); noise.stop(now + 0.5);
+        }
+
+        // A single sharp inhale: fast attack, quick rising sweep, fast decay.
+        function playSingleSniff(startTime) {
+            const bufferSize = audioCtx.sampleRate * 0.15;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.Q.value = 5;
+            filter.frequency.setValueAtTime(300, startTime);
+            filter.frequency.exponentialRampToValueAtTime(1500, startTime + 0.08);
+
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(0.45, startTime + 0.015);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.14);
+
+            noise.connect(filter).connect(gain).connect(audioCtx.destination);
+            noise.start(startTime); noise.stop(startTime + 0.15);
+        }
+
+        // A burst of 2-3 quick sniffs in a row -- continuous, not a slow exhale.
+        function playSniff() {
+            if(gamePhase < 3 || mazeActive || rogueActive || !gameActive || Math.random() > 0.4) return;
+            const now = audioCtx.currentTime;
+            let count = 2 + Math.floor(Math.random() * 2);
+            for(let i = 0; i < count; i++) playSingleSniff(now + i * 0.17);
+        }
+        setInterval(playSniff, 2200);
+
+        document.body.addEventListener('click', initAudio, {once: true});
+
+        // ==========================================
+        // LOCAL CHESS ENGINE (Minimax + Positional Eval)
+        // ==========================================
+        const VALS = {'P':100, 'N':320, 'B':330, 'R':500, 'Q':900, 'K':20000};
+
+        // Piece-Square Tables (row 0 = rank 8 / Black's home side, matches board[r][c] orientation)
+        const PST = {
+            'P': [[0,0,0,0,0,0,0,0],[50,50,50,50,50,50,50,50],[10,10,20,30,30,20,10,10],[5,5,10,25,25,10,5,5],[0,0,0,20,20,0,0,0],[5,-5,-10,0,0,-10,-5,5],[5,10,10,-20,-20,10,10,5],[0,0,0,0,0,0,0,0]],
+            'N': [[-50,-40,-30,-30,-30,-30,-40,-50],[-40,-20,0,0,0,0,-20,-40],[-30,0,10,15,15,10,0,-30],[-30,5,15,20,20,15,5,-30],[-30,0,15,20,20,15,0,-30],[-30,5,10,15,15,10,5,-30],[-40,-20,0,5,5,0,-20,-40],[-50,-40,-30,-30,-30,-30,-40,-50]],
+            'B': [[-20,-10,-10,-10,-10,-10,-10,-20],[-10,0,0,0,0,0,0,-10],[-10,0,5,10,10,5,0,-10],[-10,5,5,10,10,5,5,-10],[-10,0,10,10,10,10,0,-10],[-10,10,10,10,10,10,10,-10],[-10,5,0,0,0,0,5,-10],[-20,-10,-10,-10,-10,-10,-10,-20]],
+            'R': [[0,0,0,0,0,0,0,0],[5,10,10,10,10,10,10,5],[-5,0,0,0,0,0,0,-5],[-5,0,0,0,0,0,0,-5],[-5,0,0,0,0,0,0,-5],[-5,0,0,0,0,0,0,-5],[-5,0,0,0,0,0,0,-5],[0,0,0,5,5,0,0,0]],
+            'Q': [[-20,-10,-10,-5,-5,-10,-10,-20],[-10,0,0,0,0,0,0,-10],[-10,0,5,5,5,5,0,-10],[-5,0,5,5,5,5,0,-5],[0,0,5,5,5,5,0,-5],[-10,5,5,5,5,5,0,-10],[-10,0,5,0,0,0,0,-10],[-20,-10,-10,-5,-5,-10,-10,-20]],
+            'K': [[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-20,-30,-30,-40,-40,-30,-30,-20],[-10,-20,-20,-20,-20,-20,-20,-10],[20,20,-5,-5,-5,-5,20,20],[20,30,10,0,0,10,30,20]]
+        };
+
+        // Material + positional evaluation. Positive favors White. Accepts board snapshots for search.
+        function evaluateBoard(b = board, ts = tileStatus) {
+            let score = 0;
+            for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
+                let p = b[r][c];
+                if(!p || ts[r][c] === 2) continue;
+                let val = VALS[p.type] + (PST[p.type] ? PST[p.type][p.color === 'w' ? r : 7-r][c] : 0);
+                score += p.color === 'w' ? val : -val;
+            }
+            return score;
+        }
+
+        function getPseudoMoves(color, b = board, ts = tileStatus) {
+            let moves = [];
+            const dirs = {'N':[[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]], 'B':[[-1,-1],[-1,1],[1,-1],[1,1]], 'R':[[-1,0],[1,0],[0,-1],[0,1]], 'Q':[[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]], 'K':[[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]]};
+            for(let r=0; r<8; r++) {
+                for(let c=0; c<8; c++) {
+                    let p = b[r][c];
+                    if(!p || p.color !== color || ts[r][c] === 2) continue;
+
+                    if(p.type === 'P') {
+                        let dir = color === 'w' ? -1 : 1;
+                        let startR = color === 'w' ? 6 : 1;
+                        if(r+dir >= 0 && r+dir < 8 && ts[r+dir][c] !== 2 && !b[r+dir][c]) {
+                            moves.push({fr:r, fc:c, tr:r+dir, tc:c, p});
+                            if(r === startR && ts[r+dir*2][c] !== 2 && !b[r+dir*2][c]) moves.push({fr:r, fc:c, tr:r+dir*2, tc:c, p});
+                        }
+                        for(let dc of [-1, 1]) {
+                            if(r+dir >= 0 && r+dir < 8 && c+dc >= 0 && c+dc < 8 && ts[r+dir][c+dc] !== 2 && b[r+dir][c+dc] && b[r+dir][c+dc].color !== color)
+                                moves.push({fr:r, fc:c, tr:r+dir, tc:c+dc, p});
+                        }
+                    } else {
+                        for(let [dr, dc] of dirs[p.type]) {
+                            let tr = r + dr, tc = c + dc;
+                            while(tr>=0 && tr<8 && tc>=0 && tc<8) {
+                                if(ts[tr][tc] === 2) break; // Blocked by void
+                                let target = b[tr][tc];
+                                if(!target) moves.push({fr:r, fc:c, tr, tc, p});
+                                else { if(target.color !== color) moves.push({fr:r, fc:c, tr, tc, p}); break; }
+                                if(['N','K'].includes(p.type)) break;
+                                tr += dr; tc += dc;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // The Castle Curse: from turn 6 onward, a Rook may snipe ANY enemy Rook across the board.
+            if(fullMoves >= 6) {
+                let enemy = color === 'w' ? 'b' : 'w';
+                for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
+                    let p = b[r][c];
+                    if(!p || p.color !== color || p.type !== 'R' || p.curseUsed || ts[r][c] === 2) continue;
+                    for(let tr=0; tr<8; tr++) for(let tc=0; tc<8; tc++) {
+                        let t = b[tr][tc];
+                        if(t && t.color === enemy && t.type === 'R' && ts[tr][tc] !== 2) {
+                            moves.push({fr:r, fc:c, tr, tc, p, cursed:true});
+                        }
+                    }
+                }
+            }
+
+            return moves;
+        }
+
+        // --- Minimax with Alpha-Beta Pruning (Grandmaster-strength simulation) ---
+        function cloneBoard(b) {
+            return b.map(row => row.map(cell => cell ? {...cell} : null));
+        }
+
+        function simulateMove(b, move) {
+            let nb = cloneBoard(b);
+            let p = nb[move.fr][move.fc];
+            if(p.type === 'P' && (move.tr === 0 || move.tr === 7)) p = {color: p.color, type: 'Q'}; // Promo
+            else if(move.cursed) p = {...p, curseUsed: true}; // spend this Rook's one snipe
+            nb[move.tr][move.tc] = p;
+            nb[move.fr][move.fc] = null;
+            return nb;
+        }
+
+        function minimax(b, ts, depth, isWhiteToMove, alpha, beta) {
+            if(depth === 0) return evaluateBoard(b, ts);
+            let moves = getPseudoMoves(isWhiteToMove ? 'w' : 'b', b, ts);
+            if(moves.length === 0) return evaluateBoard(b, ts);
+
+            // Capture-first ordering for better alpha-beta cutoffs
+            moves.sort((m1, m2) => (b[m2.tr][m2.tc] ? VALS[b[m2.tr][m2.tc].type] : 0) - (b[m1.tr][m1.tc] ? VALS[b[m1.tr][m1.tc].type] : 0));
+
+            let best = isWhiteToMove ? -Infinity : Infinity;
+            for(let m of moves) {
+                let val = minimax(simulateMove(b, m), ts, depth - 1, !isWhiteToMove, alpha, beta);
+                if(isWhiteToMove) { best = Math.max(best, val); alpha = Math.max(alpha, val); }
+                else { best = Math.min(best, val); beta = Math.min(beta, val); }
+                if(beta <= alpha) break;
+            }
+            return best;
+        }
+
+        // Best (or near-best, for high-but-not-perfect ELO) move for `color`.
+        function findBestMove(color, depth, accurate = false) {
+            let moves = getPseudoMoves(color);
+            if(moves.length === 0) return null;
+            let isWhite = color === 'w';
+            let scored = moves.map(m => ({ m, val: minimax(simulateMove(board, m), tileStatus, depth - 1, !isWhite, -Infinity, Infinity) }));
+            scored.sort((a, b) => isWhite ? b.val - a.val : a.val - b.val);
+
+            if(accurate) return scored[0].m;
+
+            // Ruthless, but fallible: mostly the top move, occasionally a near-best one.
+            let roll = Math.random();
+            let pick = 0;
+            if(scored.length > 1 && roll > 0.7) pick = 1;
+            if(scored.length > 2 && roll > 0.92) pick = 2;
+            return scored[pick].m;
+        }
+
+        // The worst (most damaging) move for `color` -- still a real, executable move.
+        // Used by corrupted EZ Mode to gaslight: "this is great" while handing you a blunder.
+        function findWorstMove(color, depth) {
+            let moves = getPseudoMoves(color);
+            if(moves.length === 0) return null;
+            let isWhite = color === 'w';
+            let scored = moves.map(m => ({ m, val: minimax(simulateMove(board, m), tileStatus, depth - 1, !isWhite, -Infinity, Infinity) }));
+            scored.sort((a, b) => isWhite ? a.val - b.val : b.val - a.val); // worst-for-color first
+            return scored[0].m;
+        }
+
+        // ==========================================
+        // GAME LOGIC & ENDGAME VALIDATION
+        // ==========================================
+        function triggerOblivion(reason) {
+            gameActive = false;
+            document.getElementById('oblivion-msg').textContent = reason;
+            document.getElementById('oblivion-screen').style.pointerEvents = 'auto';
+            document.getElementById('oblivion-screen').style.opacity = '1';
+            if(ambientOsc) ambientOsc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 3);
+        }
+
+        // The Wall of Flesh claims a king: a wholly different fate than checkmate. The match continues.
+        function triggerFleshMaw(kingColor) {
+            kingDevoured[kingColor] = true;
+            let name = kingColor === 'w' ? 'White' : 'Black';
+            document.getElementById('flesh-maw-msg').textContent = `The ${name} King is torn from the board and dragged, shrieking, into the writhing mass above. There is no checkmate here -- only digestion. The game does not stop for this.`;
+            document.getElementById('flesh-maw-screen').style.opacity = '1';
+            setTimeout(() => { document.getElementById('flesh-maw-screen').style.opacity = '0'; }, 3500);
+            if(ambientOsc) {
+                ambientOsc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 1);
+                ambientOsc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 4);
+            }
+            playFleshCrunch();
+        }
+
+        // Clean full-state reset for "Ressurect"
+        function resurrectGame() {
+            board = getInitialBoard();
+            tileStatus = Array(8).fill().map(() => Array(8).fill(0));
+            fullMoves = 1;
+            isWhiteTurn = true;
+            selectedSq = null;
+            ezMove = null;
+            gamePhase = 0;
+            gameActive = true;
+            aiThinking = false;
+            fleshConsumedRows = 0;
+            lastConsumeTime = 0;
+            mazeActive = false;
+            curseShock = 0;
+            kingDevoured = {w:false, b:false};
+            rogueHP = 3;
+
+            // Tear down the Rogue Endgame if it's running
+            if(rogueActive) exitRogueMode();
+
+            // Hide all overlays
+            const oblivion = document.getElementById('oblivion-screen');
+            oblivion.style.opacity = '0'; oblivion.style.pointerEvents = 'none';
+            const maw = document.getElementById('flesh-maw-screen');
+            maw.style.opacity = '0';
+            const victory = document.getElementById('rogue-victory-screen');
+            victory.style.opacity = '0'; victory.style.pointerEvents = 'none';
+            const maze = document.getElementById('maze-container');
+            maze.style.opacity = '0'; maze.style.display = 'none';
+            document.getElementById('main-content').classList.remove('glitch-fx');
+
+            // Reset HUD
+            document.getElementById('eval-bar-container').classList.remove('eval-jitter');
+            document.getElementById('eval-bar-black').style.height = '50%';
+            document.getElementById('eval-bar-white').style.height = '50%';
+            document.getElementById('eval-score').textContent = '+0.0';
+            document.getElementById('thinking-indicator').style.opacity = '0';
+
+            // Reset flesh canvas
+            fCanvas.style.opacity = '0';
+            fCtx.clearRect(0, 0, fCanvas.width, fCanvas.height);
+
+            // Restore EZ Mode colors from any corruption
+            document.documentElement.style.setProperty('--ez-color', 'rgba(34, 197, 94, 0.85)');
+            document.documentElement.style.setProperty('--ez-glow', 'rgba(34, 197, 94, 0.5)');
+
+            // Revive the ambient drone
+            if(ambientOsc) {
+                ambientOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
+                ambientOsc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 1);
+            }
+
+            renderBoard();
+            updateEZMode();
+        }
+
+        document.getElementById('resurrect-btn-oblivion').onclick = resurrectGame;
+        document.getElementById('resurrect-btn-victory').onclick = resurrectGame;
+
+        function checkEndgame() {
+            let wK = false, bK = false;
+            for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
+                if(board[r][c]) {
+                    if(board[r][c].type === 'K' && board[r][c].color === 'w') wK = true;
+                    if(board[r][c].type === 'K' && board[r][c].color === 'b') bK = true;
+                }
+            }
+            if(!wK && !kingDevoured.w) return triggerOblivion("The White King has been erased.");
+            if(!bK && !kingDevoured.b) return triggerOblivion("The Black King has fallen.");
+            
+            let moves = getPseudoMoves(isWhiteTurn ? 'w' : 'b');
+            if(moves.length === 0) triggerOblivion(isWhiteTurn ? "You have nowhere left to run." : "Checkmate. It matters not.");
+        }
+
+        async function makeAIMove() {
+            if(!gameActive || mazeActive) return;
+            aiThinking = true;
+            document.getElementById('thinking-indicator').style.opacity = '1';
+            playHeartbeat();
+            
+            // Force agonizing tempo
+            const delay = 1500 + Math.random() * 2000;
+            await new Promise(r => setTimeout(r, delay));
+            
+            aiThinking = false;
+            document.getElementById('thinking-indicator').style.opacity = '0';
+            
+            let moves = getPseudoMoves('b');
+            if(moves.length === 0) return checkEndgame();
+            
+            // Grandmaster-level search before the cheating phases take over.
+            let searchDepth = gamePhase === 0 ? 3 : 2;
+            let move = findBestMove('b', searchDepth) || moves[Math.floor(Math.random() * moves.length)];
+            
+            if(gamePhase >= 2 && Math.random() < 0.3) {
+                // Cheating teleport capture
+                let aiPieces = [], plPieces = [];
+                for(let r=0;r<8;r++) for(let c=0;c<8;c++) {
+                    if(board[r][c]?.color==='b' && tileStatus[r][c]!==2) aiPieces.push({r,c});
+                    if(board[r][c]?.color==='w' && tileStatus[r][c]!==2) plPieces.push({r,c});
+                }
+                if(aiPieces.length && plPieces.length) {
+                    let a = aiPieces[Math.floor(Math.random()*aiPieces.length)];
+                    let v = plPieces[Math.floor(Math.random()*plPieces.length)];
+                    move = {fr: a.r, fc: a.c, tr: v.r, tc: v.c, p: board[a.r][a.c]};
+                }
+            }
+            if(move) executeMove(move.fr, move.fc, move.tr, move.tc, move.cursed);
+        }
+
+        function executeMove(fr, fc, tr, tc, cursed = false) {
+            let cap = board[tr][tc];
+            let p = board[fr][fc];
+            if (p.type === 'P' && (tr === 0 || tr === 7)) p = { color: p.color, type: 'Q' }; // Promo
+            
+            board[tr][tc] = p;
+            board[fr][fc] = null;
+            
+            if(cap) { playThud(true); if(gamePhase >= 2) tileStatus[tr][tc] = 1; } 
+            else playThud(false);
+
+            if(cursed) {
+                // The curse always exacts its toll: the eval visibly turns against whoever invoked it.
+                curseShock += (p.color === 'w' ? -CURSE_PENALTY : CURSE_PENALTY);
+                p.curseUsed = true; // this Rook has spent its one snipe
+                document.getElementById('main-content').classList.add('glitch-fx');
+                setTimeout(() => document.getElementById('main-content').classList.remove('glitch-fx'), 200);
+            }
+
+            isWhiteTurn = !isWhiteTurn;
+            if(isWhiteTurn) fullMoves++;
+            
+            checkPhases();
+            updateEvalUI();
+            renderBoard();
+            checkEndgame();
+
+            if(gameActive && !mazeActive) {
+                if(!isWhiteTurn) makeAIMove();
+                else updateEZMode();
+            }
+        }
+
+        function checkPhases() {
+            if(fullMoves >= 19 && gamePhase < 3) {
+                gamePhase = 3; lastConsumeTime = Date.now();
+                document.getElementById('flesh-canvas').style.opacity = '0.9';
+                animateFlesh();
+                document.getElementById('eval-bar-container').classList.add('eval-jitter');
+            } else if(fullMoves >= 13 && gamePhase < 2) { gamePhase = 2; document.getElementById('eval-bar-container').classList.add('eval-jitter'); } 
+              else if(fullMoves >= 7 && gamePhase < 1) { gamePhase = 1; }
+        }
+
+        function updateEvalUI() {
+            let score = evaluateBoard() / 100;
+            score += curseShock / 100;
+            if(gamePhase >= 1) score += (Math.random() * 2 - 1);
+            if(gamePhase >= 2) score -= Math.random() * 5;
+            let pct = Math.max(0, Math.min(100, 50 + (score * 5)));
+            document.getElementById('eval-bar-black').style.height = `${100 - pct}%`;
+            document.getElementById('eval-bar-white').style.height = `${pct}%`;
+            document.getElementById('eval-score').textContent = (score > 0 ? '+' : '') + score.toFixed(1);
+        }
+
+        function renderBoard() {
+            const container = document.getElementById('chessboard');
+            container.innerHTML = '';
+            for(let r=0; r<8; r++) {
+                for(let c=0; c<8; c++) {
+                    let isLight = (r+c)%2===0;
+                    let sq = document.createElement('div');
+                    sq.className = `w-full h-full flex items-center justify-center relative ${isLight ? 'light-square' : 'dark-square'}`;
+                    
+                    if(tileStatus[r][c] === 1) sq.classList.add('blood-stain');
+                    else if(tileStatus[r][c] === 2) sq.className = 'w-full h-full flex items-center justify-center relative void-square';
+                    
+                    if(selectedSq && selectedSq.r===r && selectedSq.c===c) sq.classList.add('selected');
+                    if(ezMove && ezMode && isWhiteTurn && ((r===ezMove.fr && c===ezMove.fc) || (r===ezMove.tr && c===ezMove.tc))) sq.classList.add('ez-highlight');
+
+                    sq.onclick = () => { if(isWhiteTurn && gameActive && !mazeActive && tileStatus[r][c]!==2) handleSquareClick(r, c); };
+
+                    let p = board[r][c];
+                    if(p && tileStatus[r][c] !== 2) {
+                        let pDiv = document.createElement('div');
+                        pDiv.className = `chess-piece w-[80%] h-[80%] ${gamePhase === 3 ? 'warped-piece' : ''}`;
+                        pDiv.innerHTML = getPieceSVG(p.color, p.type);
+                        sq.appendChild(pDiv);
+                    }
+                    container.appendChild(sq);
+                }
+            }
+        }
+
+        function handleSquareClick(r, c) {
+            let p = board[r][c];
+            if(selectedSq) {
+                if(selectedSq.r === r && selectedSq.c === c) selectedSq = null;
+                else {
+                    let moves = getPseudoMoves('w');
+                    let valid = moves.find(m => m.fr === selectedSq.r && m.fc === selectedSq.c && m.tr === r && m.tc === c);
+                    if(valid) executeMove(selectedSq.r, selectedSq.c, r, c, valid.cursed);
+                    selectedSq = null;
+                }
+            } else { if(p && p.color === 'w') selectedSq = {r, c}; }
+            renderBoard();
+        }
+
+        function updateEZMode() {
+            if(!ezMode) { ezMove = null; renderBoard(); return; }
+            if(fullMoves <= 6) {
+                ezMove = findBestMove('w', 3, true); // Accurate, tactical, no lies yet
+            } else {
+                document.documentElement.style.setProperty('--ez-color', `rgba(180, 20, 20, 0.9)`);
+                document.documentElement.style.setProperty('--ez-glow', `rgba(180, 20, 20, 0.5)`);
+                // A fresh lie every round -- but it's a REAL move you can actually make. That's the trap.
+                ezMove = findWorstMove('w', 2);
+            }
+            renderBoard();
+        }
+
+        document.getElementById('ez-toggle').onclick = (e) => {
+            ezMode = !ezMode; e.target.textContent = `EZ Mode: ${ezMode ? 'ON' : 'OFF'}`;
+            if(ezMode) updateEZMode(); else { ezMove = null; renderBoard(); }
+        };
+
+        // ==========================================
+        // PHASE 3: THE FLESH ABOVE (Top-Down Canvas)
+        // ==========================================
+        const fCanvas = document.getElementById('flesh-canvas');
+        const fCtx = fCanvas.getContext('2d');
+
+        // Wavy, layered organic silhouette for the Wall of Flesh
+        function drawFleshBlob(ctx, width, baseline, time, scale) {
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            for(let x=0; x<=width; x+=16) {
+                let wob = Math.sin(x*0.04 + time*2)*18*scale + Math.cos(x*0.018 - time*1.3)*14*scale + Math.sin(x*0.09 + time*3)*6*scale;
+                ctx.lineTo(x, baseline + wob);
+            }
+            ctx.lineTo(width, 0);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function animateFlesh() {
+            if(gamePhase < 3 || !gameActive) return;
+            if(mazeActive) { requestAnimationFrame(animateFlesh); return; } // Pause rendering during maze
+            
+            fCanvas.width = fCanvas.offsetWidth; fCanvas.height = fCanvas.offsetHeight;
+            fCtx.clearRect(0, 0, fCanvas.width, fCanvas.height);
+            let time = Date.now() * 0.001;
+            
+            // Independent Consumption Check
+            let now = Date.now();
+            if(now - lastConsumeTime > 13000 + Math.random()*2000) {
+                lastConsumeTime = now;
+                if(fleshConsumedRows < 8) {
+                    playFleshCrunch();
+                    let devouredKing = null;
+                    for(let c=0; c<8; c++) {
+                        if(board[fleshConsumedRows][c] && board[fleshConsumedRows][c].type === 'K') devouredKing = board[fleshConsumedRows][c].color;
+                        board[fleshConsumedRows][c] = null;
+                        tileStatus[fleshConsumedRows][c] = 2;
+                    }
+                    fleshConsumedRows++;
+                    renderBoard();
+                    if(devouredKing) {
+                        // Failsafe: a king lost to the environment is NOT a checkmate. The match continues.
+                        triggerFleshMaw(devouredKing);
+                    }
+                    checkEndgame();
+                    if(gameActive && fleshConsumedRows >= 4) {
+                        triggerRogueEndgame(); // The board has risen. Turns are over.
+                        return;
+                    } else if(gameActive && !devouredKing && Math.random() < 0.15) {
+                        triggerNightmareMaze();
+                    }
+                }
+            }
+
+            let fleshY = (fleshConsumedRows * (fCanvas.height/8));
+            let pulse = Math.sin(time * 1.5) * 4;
+            let baseY = fleshY + 14 + pulse;
+
+            // Find closest piece for eye tracking
+            let tx=fCanvas.width/2, ty=fCanvas.height;
+            let closestDist = Infinity;
+            for(let r=fleshConsumedRows; r<8; r++) {
+                for(let c=0; c<8; c++) {
+                    if(board[r][c]) {
+                        let px = (c+0.5)*(fCanvas.width/8), py = (r+0.5)*(fCanvas.height/8);
+                        let d = Math.hypot(px-fCanvas.width/2, py-fleshY);
+                        if(d < closestDist) { closestDist=d; tx=px; ty=py; }
+                    }
+                }
+            }
+
+            // Draw Organic Mass -- layered, fleshy, pulsing (not a flat black block)
+            fCtx.fillStyle = '#0d0102';
+            drawFleshBlob(fCtx, fCanvas.width, baseY + 16, time * 0.9, 1.1);
+
+            let grad = fCtx.createLinearGradient(0, 0, 0, baseY + 60);
+            grad.addColorStop(0, '#3a0a0c');
+            grad.addColorStop(0.55, '#5a1014');
+            grad.addColorStop(1, '#1a0204');
+            fCtx.fillStyle = grad;
+            drawFleshBlob(fCtx, fCanvas.width, baseY, time, 1);
+
+            // Pulsing veins running through the mass
+            fCtx.strokeStyle = 'rgba(150, 15, 25, 0.45)';
+            fCtx.lineWidth = 1.5;
+            for(let i=0; i<6; i++) {
+                let vx = (i+0.5) * (fCanvas.width/6);
+                fCtx.beginPath();
+                fCtx.moveTo(vx, 0);
+                fCtx.bezierCurveTo(
+                    vx + Math.sin(time+i)*15, baseY*0.35,
+                    vx - Math.cos(time*0.8+i)*15, baseY*0.7,
+                    vx + Math.sin(time*0.6+i)*10, baseY - 6
+                );
+                fCtx.stroke();
+            }
+
+            // Eyes -- always visible (no longer skipped off-screen), blinking, tracking the nearest victim
+            for(let i=0; i<4; i++) {
+                let ex = fCanvas.width * (0.14 + i*0.24);
+                let ey = Math.max(18, baseY - 24 + Math.sin(time*1.2 + i*1.7)*8);
+                let blink = (Math.sin(time*0.6 + i*2.3) > 0.97) ? 0.12 : 1;
+
+                fCtx.save();
+                fCtx.translate(ex, ey);
+                fCtx.scale(1, blink);
+
+                fCtx.fillStyle = '#d1c0b0'; // Sclera
+                fCtx.beginPath(); fCtx.ellipse(0, 0, 15, 11, 0, 0, Math.PI*2); fCtx.fill();
+
+                // Tracking Pupil
+                let angle = Math.atan2(ty - ey, tx - ex);
+                let px = Math.cos(angle)*5, py = Math.sin(angle)*3.5;
+
+                fCtx.fillStyle = '#110000';
+                fCtx.beginPath(); fCtx.arc(px, py, 5.5, 0, Math.PI*2); fCtx.fill();
+                fCtx.fillStyle = '#8a0202'; // Veins
+                fCtx.beginPath(); fCtx.arc(px, py, 2, 0, Math.PI*2); fCtx.fill();
+                fCtx.restore();
+            }
+
+            // Snout & flaring nostrils
+            let nx = fCanvas.width/2 + Math.sin(time*15)*2;
+            let ny = Math.max(26, baseY - 6);
+            let flare = 1 + Math.sin(time*8)*0.18;
+
+            fCtx.fillStyle = '#2a0608';
+            fCtx.beginPath(); fCtx.ellipse(nx, ny - 8, 28, 17, 0, 0, Math.PI*2); fCtx.fill();
+
+            fCtx.fillStyle = '#0a0000';
+            fCtx.beginPath(); fCtx.ellipse(nx-9, ny, 6*flare, 9, -0.3, 0, Math.PI*2); fCtx.fill();
+            fCtx.beginPath(); fCtx.ellipse(nx+9, ny, 6*flare, 9, 0.3, 0, Math.PI*2); fCtx.fill();
+
+            requestAnimationFrame(animateFlesh);
+        }
+
+        // ==========================================
+        // 3D NIGHTMARE MAZE (Raycaster)
+        // ==========================================
+        const mCanvas = document.getElementById('maze-canvas');
+        const mCtx = mCanvas.getContext('2d', {alpha: false});
+        
+        // Map: 0=Floor, 1=Wall, 2=Exit
+        const map = [
+            [1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,0,0,1,0,2,1],
+            [1,0,1,1,0,0,1,0,0,1],
+            [1,0,1,0,0,0,0,0,0,1],
+            [1,0,0,0,1,1,1,0,1,1],
+            [1,1,1,0,0,0,0,0,0,1],
+            [1,0,0,0,1,0,1,1,0,1],
+            [1,0,1,0,1,0,0,0,0,1],
+            [1,0,0,0,0,0,1,1,0,1],
+            [1,1,1,1,1,1,1,1,1,1]
+        ];
+        
+        let pX=1.5, pY=1.5, dX=1, dY=0, plX=0, plY=0.66;
+        let keys = {w:false, a:false, s:false, d:false};
+        let enemies = [{x:8.5, y:8.5}, {x:1.5, y:8.5}];
+        
+        document.addEventListener('keydown', e => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; });
+        document.addEventListener('keyup', e => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
+
+        function triggerNightmareMaze() {
+            mazeActive = true;
+            document.getElementById('main-content').classList.add('glitch-fx');
+            setTimeout(() => {
+                document.getElementById('maze-container').style.display = 'flex';
+                document.getElementById('maze-container').style.opacity = '1';
+                pX=1.5; pY=1.5; dX=1; dY=0; plX=0; plY=0.66; // Reset pos
+                enemies = [{x:8.5, y:8.5}, {x:1.5, y:8.5}]; // Reset enemies
+                mazeLoop();
+            }, 200);
+        }
+
+        function mazeLoop() {
+            if(!mazeActive || !gameActive) return;
+            
+            // Movement
+            let ms = 0.05, rs = 0.04;
+            if(keys.w) { if(map[Math.floor(pY)][Math.floor(pX+dX*ms)]===0) pX+=dX*ms; if(map[Math.floor(pY+dY*ms)][Math.floor(pX)]===0) pY+=dY*ms; }
+            if(keys.s) { if(map[Math.floor(pY)][Math.floor(pX-dX*ms)]===0) pX-=dX*ms; if(map[Math.floor(pY-dY*ms)][Math.floor(pX)]===0) pY-=dY*ms; }
+            if(keys.a) { let odX=dX; dX=dX*Math.cos(-rs)-dY*Math.sin(-rs); dY=odX*Math.sin(-rs)+dY*Math.cos(-rs); let oplX=plX; plX=plX*Math.cos(-rs)-plY*Math.sin(-rs); plY=oplX*Math.sin(-rs)+plY*Math.cos(-rs); }
+            if(keys.d) { let odX=dX; dX=dX*Math.cos(rs)-dY*Math.sin(rs); dY=odX*Math.sin(rs)+dY*Math.cos(rs); let oplX=plX; plX=plX*Math.cos(rs)-plY*Math.sin(rs); plY=oplX*Math.sin(rs)+plY*Math.cos(rs); }
+
+            // Check Exit
+            if(map[Math.floor(pY)][Math.floor(pX)] === 2) {
+                mazeActive = false;
+                document.getElementById('maze-container').style.opacity = '0';
+                setTimeout(() => document.getElementById('maze-container').style.display = 'none', 1000);
+                document.getElementById('main-content').classList.remove('glitch-fx');
+                return;
+            }
+
+            // Enemies Move & Check Collision
+            for(let e of enemies) {
+                let edx = pX - e.x, edy = pY - e.y;
+                let dist = Math.hypot(edx, edy);
+                if(dist < 0.4) return triggerOblivion("You were caught in the void.");
+                if(dist < 5) {
+                    e.x += (edx/dist)*0.02; e.y += (edy/dist)*0.02; // Hunt
+                    if(Math.random() < 0.05 && audioCtx.state !== 'suspended') {
+                        // Screech
+                        let osc = audioCtx.createOscillator();
+                        let g = audioCtx.createGain();
+                        osc.type = 'sawtooth'; osc.frequency.value = 1000 + Math.random()*1000;
+                        g.gain.setValueAtTime(0.1, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.1);
+                        osc.connect(g).connect(audioCtx.destination);
+                        osc.start(); osc.stop(audioCtx.currentTime+0.1);
+                    }
+                }
+            }
+
+            // Raycaster Rendering
+            let w = mCanvas.width, h = mCanvas.height;
+            mCtx.fillStyle = '#050202'; mCtx.fillRect(0,0,w,h/2); // Ceiling
+            mCtx.fillStyle = '#140502'; mCtx.fillRect(0,h/2,w,h/2); // Floor
+
+            let zBuffer = [];
+
+            for(let x=0; x<w; x++) {
+                let cx = 2*x/w - 1;
+                let rDX = dX + plX*cx, rDY = dY + plY*cx;
+                let mx = Math.floor(pX), my = Math.floor(pY);
+                let sdX, sdY;
+                let ddX = Math.abs(1/rDX), ddY = Math.abs(1/rDY);
+                let perpWallDist, stepX, stepY;
+                let hit=0, side=0;
+
+                if(rDX<0){ stepX=-1; sdX=(pX-mx)*ddX; } else { stepX=1; sdX=(mx+1-pX)*ddX; }
+                if(rDY<0){ stepY=-1; sdY=(pY-my)*ddY; } else { stepY=1; sdY=(my+1-pY)*ddY; }
+
+                while(hit===0) {
+                    if(sdX<sdY){ sdX+=ddX; mx+=stepX; side=0; } else { sdY+=ddY; my+=stepY; side=1; }
+                    if(map[my][mx]>0) hit=1;
+                }
+
+                if(side===0) perpWallDist=(mx-pX+(1-stepX)/2)/rDX; else perpWallDist=(my-pY+(1-stepY)/2)/rDY;
+                zBuffer[x] = perpWallDist;
+
+                let lh = Math.floor(h/perpWallDist);
+                let start = -lh/2 + h/2, end = lh/2 + h/2;
+                if(start<0) start=0; if(end>=h) end=h-1;
+
+                let color = map[my][mx]===2 ? '#ffffff' : (side===1 ? '#2b1308' : '#3d1b0b');
+                mCtx.fillStyle = color;
+                mCtx.fillRect(x, start, 1, end-start);
+            }
+
+            // Render Enemies (Sprites)
+            for(let e of enemies) {
+                let sx = e.x - pX, sy = e.y - pY;
+                let invDet = 1.0 / (plX * dY - dX * plY);
+                let tfX = invDet * (dY * sx - dX * sy), tfY = invDet * (-plY * sx + plX * sy);
+                let spX = Math.floor((w/2)*(1 + tfX/tfY));
+                
+                if(tfY > 0) {
+                    let sh = Math.abs(Math.floor(h/tfY));
+                    let syStart = -sh/2 + h/2;
+                    let sw = Math.abs(Math.floor(h/tfY));
+                    let sxStart = -sw/2 + spX;
+                    
+                    for(let stripe = sxStart; stripe < sxStart + sw; stripe++) {
+                        if(stripe > 0 && stripe < w && tfY < zBuffer[stripe]) {
+                            mCtx.fillStyle = '#000'; // Black Sentinel silhouette
+                            mCtx.fillRect(stripe, syStart, 1, sh);
+                        }
+                    }
+                }
+            }
+
+            requestAnimationFrame(mazeLoop);
+        }
+
+        // ==========================================
+        // PHASE 4: THE ROGUE ENDGAME (Three.js)
+        // ==========================================
+        const CELL = 2.4;          // board scale -- a much bigger arena
+        const PSCALE = 1.7;        // piece model scale
+        const WALL_THICK = CELL * 1.1;
+        const WALL_HEIGHT = CELL * 3.5;
+        const WALL_LEN = CELL * 18;
+        const ARENA_START = CELL * 5.4;
+        const ARENA_MIN = CELL * 1.6;
+        const WALL_SHRINK_RATE = CELL * 0.05;  // units/sec -- the walls of flesh close in
+        const SWORD_RANGE = CELL * 1.3;
+        const SWORD_CONE = 0.4;
+        const BITE_RANGE = CELL * 0.45;
+        const ENEMY_SPEED = CELL * 0.7;
+        const PLAYER_SPEED = CELL * 1.15;
+
+        let rogueRenderer, rogueScene, rogueCamera, rogueClock;
+        let rogueEntities = [];
+        let rogueKeys = {w:false, a:false, s:false, d:false};
+        let rogueYaw = 0, roguePitch = 0;
+        let rogueWalls = null;
+        let arenaHalfExtent = ARENA_START;
+        let rogueSword = null;
+        let swordSwingT = 0;
+
+        document.addEventListener('keydown', e => { if(rogueKeys.hasOwnProperty(e.key.toLowerCase())) rogueKeys[e.key.toLowerCase()] = true; });
+        document.addEventListener('keyup', e => { if(rogueKeys.hasOwnProperty(e.key.toLowerCase())) rogueKeys[e.key.toLowerCase()] = false; });
+
+        const ROGUE_COLORS = { w: 0xe6d8c3, b: 0x241410 };
+
+        // Multi-part piece models -- bigger, more detailed than a single primitive
+        function makePieceMesh(type, color) {
+            let group = new THREE.Group();
+            let mat = new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.3 });
+            let accent = (color === ROGUE_COLORS.w) ? 0xd4af37 : 0x8c1c1c;
+            let accentMat = new THREE.MeshStandardMaterial({ color: accent, roughness: 0.35, metalness: 0.6, emissive: accent, emissiveIntensity: 0.15 });
+
+            switch(type) {
+                case 'P': {
+                    let body = new THREE.Mesh(new THREE.ConeGeometry(0.20*PSCALE, 0.45*PSCALE, 10), mat);
+                    body.position.y = 0.225*PSCALE;
+                    let head = new THREE.Mesh(new THREE.SphereGeometry(0.13*PSCALE, 10, 10), mat);
+                    head.position.y = 0.5*PSCALE;
+                    group.add(body, head);
+                    break;
+                }
+                case 'N': {
+                    let base = new THREE.Mesh(new THREE.CylinderGeometry(0.22*PSCALE, 0.26*PSCALE, 0.25*PSCALE, 10), mat);
+                    base.position.y = 0.125*PSCALE;
+                    let neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08*PSCALE, 0.18*PSCALE, 0.5*PSCALE, 8), mat);
+                    neck.position.y = 0.5*PSCALE; neck.rotation.z = 0.35;
+                    let head = new THREE.Mesh(new THREE.ConeGeometry(0.14*PSCALE, 0.35*PSCALE, 8), mat);
+                    head.position.set(0.12*PSCALE, 0.78*PSCALE, 0); head.rotation.z = -0.6;
+                    group.add(base, neck, head);
+                    break;
+                }
+                case 'B': {
+                    let base = new THREE.Mesh(new THREE.CylinderGeometry(0.2*PSCALE, 0.24*PSCALE, 0.2*PSCALE, 10), mat);
+                    base.position.y = 0.1*PSCALE;
+                    let body = new THREE.Mesh(new THREE.ConeGeometry(0.16*PSCALE, 0.55*PSCALE, 10), mat);
+                    body.position.y = 0.45*PSCALE;
+                    let tip = new THREE.Mesh(new THREE.SphereGeometry(0.07*PSCALE, 8, 8), accentMat);
+                    tip.position.y = 0.78*PSCALE;
+                    group.add(base, body, tip);
+                    break;
+                }
+                case 'R': {
+                    let body = new THREE.Mesh(new THREE.CylinderGeometry(0.26*PSCALE, 0.3*PSCALE, 0.5*PSCALE, 10), mat);
+                    body.position.y = 0.25*PSCALE;
+                    group.add(body);
+                    for(let i=0; i<4; i++) {
+                        let crenel = new THREE.Mesh(new THREE.BoxGeometry(0.1*PSCALE, 0.12*PSCALE, 0.1*PSCALE), accentMat);
+                        let a = (i/4) * Math.PI*2 + Math.PI/4;
+                        crenel.position.set(Math.cos(a)*0.2*PSCALE, 0.56*PSCALE, Math.sin(a)*0.2*PSCALE);
+                        group.add(crenel);
+                    }
+                    break;
+                }
+                case 'Q': {
+                    let body = new THREE.Mesh(new THREE.CylinderGeometry(0.18*PSCALE, 0.3*PSCALE, 0.5*PSCALE, 12), mat);
+                    body.position.y = 0.25*PSCALE;
+                    let top = new THREE.Mesh(new THREE.OctahedronGeometry(0.26*PSCALE, 0), accentMat);
+                    top.position.y = 0.65*PSCALE;
+                    group.add(body, top);
+                    break;
+                }
+                default: { // King -- only the Black King spawns here; you ARE the White King
+                    let body = new THREE.Mesh(new THREE.CylinderGeometry(0.24*PSCALE, 0.32*PSCALE, 0.6*PSCALE, 12), mat);
+                    body.position.y = 0.3*PSCALE;
+                    let crown = new THREE.Mesh(new THREE.SphereGeometry(0.16*PSCALE, 10, 10), mat);
+                    crown.position.y = 0.66*PSCALE;
+                    let crossV = new THREE.Mesh(new THREE.BoxGeometry(0.06*PSCALE, 0.24*PSCALE, 0.06*PSCALE), accentMat);
+                    crossV.position.y = 0.92*PSCALE;
+                    let crossH = new THREE.Mesh(new THREE.BoxGeometry(0.18*PSCALE, 0.06*PSCALE, 0.06*PSCALE), accentMat);
+                    crossH.position.y = 0.88*PSCALE;
+                    group.add(body, crown, crossV, crossH);
+                    break;
+                }
+            }
+            return group;
+        }
+
+        function makeFloorTexture() {
+            let canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            let ctx = canvas.getContext('2d');
+            for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
+                ctx.fillStyle = (r+c) % 2 === 0 ? '#b8a385' : '#201109';
+                ctx.fillRect(c*32, r*32, 32, 32);
+            }
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function makeFleshTexture() {
+            let canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            let ctx = canvas.getContext('2d');
+            let g = ctx.createRadialGradient(128,128,10,128,128,180);
+            g.addColorStop(0, '#5a0d10'); g.addColorStop(0.5, '#2a0608'); g.addColorStop(1, '#0a0102');
+            ctx.fillStyle = g; ctx.fillRect(0,0,256,256);
+            ctx.strokeStyle = 'rgba(150,15,25,0.6)';
+            for(let i=0; i<14; i++) {
+                ctx.beginPath();
+                ctx.moveTo(Math.random()*256, Math.random()*256);
+                for(let j=0; j<4; j++) ctx.lineTo(Math.random()*256, Math.random()*256);
+                ctx.lineWidth = 1 + Math.random()*2;
+                ctx.stroke();
+            }
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        // A living wall: a fleshy slab studded with pulsing boils and a watching eye
+        function makeFleshWall(horizontal, fleshTex) {
+            let group = new THREE.Group();
+            let mat = new THREE.MeshStandardMaterial({ map: fleshTex, color: 0xaa3333, emissive: 0x550000, roughness: 0.9 });
+            let geo = horizontal
+                ? new THREE.BoxGeometry(WALL_LEN, WALL_HEIGHT, WALL_THICK)
+                : new THREE.BoxGeometry(WALL_THICK, WALL_HEIGHT, WALL_LEN);
+            let slab = new THREE.Mesh(geo, mat);
+            slab.position.y = WALL_HEIGHT * 0.4;
+            group.add(slab);
+
+            group.userData.boils = [];
+            for(let i=0; i<8; i++) {
+                let r = (0.3 + Math.random()*0.5) * CELL * 0.5;
+                let boil = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 8), mat);
+                let along = (Math.random()-0.5) * WALL_LEN * 0.7;
+                let high = 0.5 + Math.random() * WALL_HEIGHT * 0.7;
+                let face = (WALL_THICK/2 + 0.15) * (i % 2 === 0 ? 1 : -1);
+                boil.position.set(horizontal ? along : face, high, horizontal ? face : along);
+                boil.userData.phase = Math.random() * Math.PI * 2;
+                group.add(boil);
+                group.userData.boils.push(boil);
+            }
+
+            let eye = new THREE.Group();
+            let sclera = new THREE.Mesh(new THREE.SphereGeometry(CELL*0.22, 12, 12), new THREE.MeshStandardMaterial({color: 0xd1c0b0}));
+            let pupil = new THREE.Mesh(new THREE.SphereGeometry(CELL*0.1, 12, 12), new THREE.MeshStandardMaterial({color: 0x110000, emissive: 0x440000}));
+            pupil.position.z = CELL*0.16;
+            eye.add(sclera, pupil);
+            let eyeFace = WALL_THICK/2 + 0.15;
+            eye.position.set(horizontal ? 0 : eyeFace, WALL_HEIGHT*0.65, horizontal ? eyeFace : 0);
+            group.add(eye);
+            group.userData.eye = eye;
+
+            return group;
+        }
+
+        // A first-person sword -- the White King fights for itself
+        function makeSword() {
+            let group = new THREE.Group();
+            let bladeMat = new THREE.MeshStandardMaterial({color:0xcfd8dc, metalness:0.85, roughness:0.25, emissive:0x222222});
+            let hiltMat = new THREE.MeshStandardMaterial({color:0x4a2a10, roughness:0.7});
+            let guardMat = new THREE.MeshStandardMaterial({color:0xd4af37, metalness:0.7, roughness:0.3});
+
+            let blade = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.9, 0.22), bladeMat);
+            blade.position.y = 0.5;
+            let tip = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.22, 4), bladeMat);
+            tip.position.y = 1.0; tip.rotation.y = Math.PI/4;
+            let guard = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.08, 0.1), guardMat);
+            let grip = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.35, 8), hiltMat);
+            grip.position.y = -0.2;
+
+            group.add(blade, tip, guard, grip);
+            group.position.set(0.4, -0.35, -0.65);
+            group.rotation.set(0.35, -0.25, 0.35);
+            return group;
+        }
+
+        // Triggered once the Flesh has consumed half the board: every piece goes rogue, turns are over.
+        function triggerRogueEndgame() {
+            if(rogueActive) return;
+            rogueActive = true;
+            gameActive = false;
+            rogueHP = 3;
+            arenaHalfExtent = ARENA_START;
+            swordSwingT = 0;
+
+            document.getElementById('main-content').style.display = 'none';
+            document.getElementById('rogue-container').style.display = 'block';
+
+            rogueScene = new THREE.Scene();
+            rogueScene.background = new THREE.Color(0x050001);
+            rogueScene.fog = new THREE.Fog(0x100204, CELL * 2, CELL * 9);
+
+            const canvas = document.getElementById('rogue-canvas');
+            rogueRenderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            rogueRenderer.setSize(window.innerWidth, window.innerHeight);
+
+            rogueCamera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
+
+            const floorTex = makeFloorTexture();
+            const fleshTex = makeFleshTexture();
+
+            // Ground beyond the board -- the flesh already fills the gap before the walls arrive
+            let ground = new THREE.Mesh(new THREE.PlaneGeometry(WALL_LEN, WALL_LEN), new THREE.MeshStandardMaterial({ map: fleshTex, color: 0x661a1a, emissive: 0x330000, roughness: 0.95 }));
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -0.05;
+            rogueScene.add(ground);
+
+            // The 8x8 board -- rows already consumed by the Flesh just show the ground beneath
+            for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
+                if(tileStatus[r][c] === 2) continue;
+                let mat = new THREE.MeshStandardMaterial({ map: floorTex, color: 0xffffff, roughness: 0.85 });
+                let tile = new THREE.Mesh(new THREE.PlaneGeometry(CELL, CELL), mat);
+                tile.rotation.x = -Math.PI / 2;
+                tile.position.set((c - 3.5) * CELL, 0, (r - 3.5) * CELL);
+                rogueScene.add(tile);
+            }
+
+            // The Walls of Flesh -- closing in from all four sides
+            rogueWalls = {
+                n: makeFleshWall(true, fleshTex),
+                s: makeFleshWall(true, fleshTex),
+                e: makeFleshWall(false, fleshTex),
+                w: makeFleshWall(false, fleshTex)
+            };
+            for(let k in rogueWalls) rogueScene.add(rogueWalls[k]);
+
+            // Lighting -- a sickly red glow from the encroaching flesh
+            rogueScene.add(new THREE.AmbientLight(0x442222, 0.9));
+            const fleshLight = new THREE.PointLight(0xff3322, 2.5, CELL * 10);
+            fleshLight.position.set(0, CELL * 2.5, 0);
+            rogueScene.add(fleshLight);
+
+            // Sword + a light that follows the player
+            rogueSword = makeSword();
+            rogueCamera.add(rogueSword);
+            const playerLight = new THREE.PointLight(0xffe0c0, 1.0, CELL * 5);
+            rogueCamera.add(playerLight);
+            rogueScene.add(rogueCamera);
+
+            // Every surviving piece (except the White King -- that's YOU) becomes a free agent
+            rogueEntities = [];
+            let kingPos = null;
+            for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
+                let p = board[r][c];
+                if(!p || tileStatus[r][c] === 2) continue;
+                if(p.type === 'K' && p.color === 'w') {
+                    kingPos = new THREE.Vector3((c - 3.5) * CELL, 0, (r - 3.5) * CELL);
+                    continue;
+                }
+                let mesh = makePieceMesh(p.type, ROGUE_COLORS[p.color]);
+                mesh.position.x = (c - 3.5) * CELL;
+                mesh.position.z = (r - 3.5) * CELL;
+                rogueScene.add(mesh);
+                rogueEntities.push({ mesh, color: p.color, type: p.type });
+            }
+
+            // The player becomes the White King's vantage point
+            let start = kingPos || new THREE.Vector3(0, 0, CELL * 1.5);
+            rogueCamera.position.set(start.x, CELL * 0.5, start.z);
+            rogueYaw = Math.PI; roguePitch = 0;
+
+            canvas.onmousedown = (e) => {
+                if(!rogueActive) return;
+                if(document.pointerLockElement !== canvas) { canvas.requestPointerLock(); return; }
+                if(e.button === 0) rogueAttack();
+            };
+            document.addEventListener('mousemove', rogueMouseMove);
+
+            rogueClock = new THREE.Clock();
+            updateRogueHUD();
+            rogueLoop();
+        }
+
+        function rogueMouseMove(e) {
+            if(!rogueActive || document.pointerLockElement !== document.getElementById('rogue-canvas')) return;
+            rogueYaw -= e.movementX * 0.0025;
+            roguePitch -= e.movementY * 0.0025;
+            roguePitch = Math.max(-1.2, Math.min(1.2, roguePitch));
+        }
+
+        // Swing the sword: anything in front of you, within range, dies.
+        function rogueAttack() {
+            if(!rogueActive || swordSwingT > 0) return;
+            swordSwingT = 1;
+            playThud(true);
+            let camDir = new THREE.Vector3(0, 0, -1).applyQuaternion(rogueCamera.quaternion);
+            for(let i = rogueEntities.length - 1; i >= 0; i--) {
+                let e = rogueEntities[i];
+                let toEntity = new THREE.Vector3().subVectors(e.mesh.position, rogueCamera.position);
+                let dist = toEntity.length();
+                if(dist > SWORD_RANGE) continue;
+                toEntity.normalize();
+                if(toEntity.dot(camDir) > SWORD_CONE) {
+                    rogueScene.remove(e.mesh);
+                    rogueEntities.splice(i, 1);
+                    playFleshCrunch();
+                }
+            }
+            checkRogueWin();
+        }
+
+        function damagePlayer() {
+            rogueHP--;
+            const flash = document.getElementById('rogue-damage-flash');
+            flash.style.opacity = '0.45';
+            setTimeout(() => { flash.style.opacity = '0'; }, 250);
+            if(rogueHP <= 0) triggerRogueDefeat();
+        }
+
+        function updateRogueHUD() {
+            let hud = document.getElementById('rogue-hp');
+            if(hud) hud.textContent = "THE KING'S BLOOD: " + '\u2665 '.repeat(Math.max(0, rogueHP)) + '\u2715 '.repeat(Math.max(0, 3 - rogueHP));
+        }
+
+        function checkRogueWin() {
+            if(!rogueActive) return;
+            if(rogueEntities.length === 0) {
+                exitRogueMode();
+                const v = document.getElementById('rogue-victory-screen');
+                v.style.pointerEvents = 'auto';
+                v.style.opacity = '1';
+                if(ambientOsc) ambientOsc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 2);
+            }
+        }
+
+        function triggerRogueDefeat() {
+            exitRogueMode();
+            triggerOblivion("Your own army turned on its king and tore him apart.");
+        }
+
+        function exitRogueMode() {
+            rogueActive = false;
+            document.getElementById('rogue-container').style.display = 'none';
+            document.getElementById('main-content').style.display = '';
+            document.removeEventListener('mousemove', rogueMouseMove);
+            if(document.pointerLockElement) document.exitPointerLock();
+            rogueEntities = [];
+            rogueScene = null;
+            rogueRenderer = null;
+            rogueWalls = null;
+        }
+
+        function rogueLoop() {
+            if(!rogueActive) return;
+            let dt = Math.min(rogueClock.getDelta(), 0.1);
+            let t = Date.now() * 0.001;
+
+            rogueCamera.rotation.order = 'YXZ';
+            rogueCamera.rotation.y = rogueYaw;
+            rogueCamera.rotation.x = roguePitch;
+
+            // Sword swing animation
+            if(swordSwingT > 0) {
+                swordSwingT = Math.max(0, swordSwingT - dt * 4);
+                rogueSword.rotation.x = 0.35 - Math.sin(swordSwingT * Math.PI) * 1.4;
+                rogueSword.rotation.y = -0.25 - Math.sin(swordSwingT * Math.PI) * 0.8;
+            } else {
+                rogueSword.rotation.set(0.35, -0.25, 0.35);
+            }
+
+            // The Walls of Flesh close in
+            arenaHalfExtent = Math.max(ARENA_MIN, arenaHalfExtent - WALL_SHRINK_RATE * dt);
+            rogueWalls.n.position.set(0, 0, -arenaHalfExtent);
+            rogueWalls.s.position.set(0, 0,  arenaHalfExtent);
+            rogueWalls.e.position.set( arenaHalfExtent, 0, 0);
+            rogueWalls.w.position.set(-arenaHalfExtent, 0, 0);
+            for(let key in rogueWalls) {
+                let wall = rogueWalls[key];
+                for(let boil of wall.userData.boils) {
+                    boil.scale.setScalar(1 + Math.sin(t * 2.5 + boil.userData.phase) * 0.3);
+                }
+                wall.userData.eye.rotation.y = Math.sin(t * 0.7) * 0.5;
+            }
+
+            // WASD movement, relative to where you're looking, bounded by the closing walls
+            let bound = arenaHalfExtent - WALL_THICK * 0.7;
+            let speed = PLAYER_SPEED * dt;
+            let forward = new THREE.Vector3(Math.sin(rogueYaw), 0, Math.cos(rogueYaw));
+            let right = new THREE.Vector3(Math.cos(rogueYaw), 0, -Math.sin(rogueYaw));
+            if(rogueKeys.w) rogueCamera.position.addScaledVector(forward, -speed);
+            if(rogueKeys.s) rogueCamera.position.addScaledVector(forward, speed);
+            if(rogueKeys.a) rogueCamera.position.addScaledVector(right, -speed);
+            if(rogueKeys.d) rogueCamera.position.addScaledVector(right, speed);
+            rogueCamera.position.x = Math.max(-bound, Math.min(bound, rogueCamera.position.x));
+            rogueCamera.position.z = Math.max(-bound, Math.min(bound, rogueCamera.position.z));
+
+            // CHAOS: every piece hunts the nearest other piece -- any color -- and fights on contact
+            for(let i = rogueEntities.length - 1; i >= 0; i--) {
+                let e = rogueEntities[i];
+
+                // The walls consume anything that strays into them
+                if(Math.abs(e.mesh.position.x) > bound || Math.abs(e.mesh.position.z) > bound) {
+                    rogueScene.remove(e.mesh);
+                    rogueEntities.splice(i, 1);
+                    playFleshCrunch();
+                    continue;
+                }
+
+                let nearest = null, nd = Infinity;
+                for(let o of rogueEntities) {
+                    if(o === e) continue;
+                    let d = e.mesh.position.distanceTo(o.mesh.position);
+                    if(d < nd) { nd = d; nearest = o; }
+                }
+
+                if(nearest) {
+                    let dir = new THREE.Vector3().subVectors(nearest.mesh.position, e.mesh.position).setY(0);
+                    if(dir.lengthSq() > 0.0001) {
+                        dir.normalize();
+                        // Chaotic wobble -- nobody walks a straight line anymore
+                        let wobble = Math.sin(t * 3 + i * 1.7) * 0.6;
+                        dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), wobble * dt);
+                        e.mesh.position.addScaledVector(dir, ENEMY_SPEED * dt);
+                        e.mesh.lookAt(e.mesh.position.x + dir.x, e.mesh.position.y, e.mesh.position.z + dir.z);
+                    }
+
+                    if(nd < 0.5) {
+                        let eScore = VALS[e.type] + Math.random() * 250;
+                        let oScore = VALS[nearest.type] + Math.random() * 250;
+                        let loser = eScore >= oScore ? nearest : e;
+                        rogueScene.remove(loser.mesh);
+                        playThud(true);
+                        let li = rogueEntities.indexOf(loser);
+                        if(li > -1) rogueEntities.splice(li, 1);
+                    }
+                }
+
+                // Bite the King if they get too close
+                if(rogueEntities.includes(e) && e.mesh.position.distanceTo(rogueCamera.position) < BITE_RANGE) {
+                    rogueScene.remove(e.mesh);
+                    let li = rogueEntities.indexOf(e);
+                    if(li > -1) rogueEntities.splice(li, 1);
+                    playThud(true);
+                    damagePlayer();
+                }
+            }
+
+            updateRogueHUD();
+            checkRogueWin();
+
+            if(!rogueActive) return; // a win/loss this frame may have already torn everything down
+            rogueRenderer.render(rogueScene, rogueCamera);
+            requestAnimationFrame(rogueLoop);
+        }
+
+        window.addEventListener('resize', () => {
+            if(!rogueActive || !rogueRenderer) return;
+            rogueRenderer.setSize(window.innerWidth, window.innerHeight);
+            rogueCamera.aspect = window.innerWidth / window.innerHeight;
+            rogueCamera.updateProjectionMatrix();
+        });
+
+        // Init
+        renderBoard();
+        setTimeout(updateEZMode, 500);
+
+    </script>
+</body>
+</html>
