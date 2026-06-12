@@ -14,3 +14,5 @@ The entire game runs out of a single file, which you can find in this repository
 - A local AI opponent that calculates its own moves.
 - Custom sound design and visual themes powered by vanilla JavaScript and Tailwind CSS.
 - An included developer tools sidebar for testing different game states.
+
+_This game was developed by multiple Flagship AI Models and then polished after._
