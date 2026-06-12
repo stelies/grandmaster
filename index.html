@@ -34,8 +34,8 @@
             position: relative;
             z-index: 10;
         }
-        .light-square { background: radial-gradient(circle at center, #e0d0b8 0%, #b8a385 60%, #9e8766 100%); box-shadow: inset 0 0 12px rgba(0,0,0,0.3); }
-        .dark-square { background: radial-gradient(circle at center, #3d2415 0%, #201109 60%, #140904 100%); box-shadow: inset 0 0 18px rgba(0,0,0,0.7); }
+        .light-square { background: radial-gradient(circle at center, #e0d0b8 0%, #b8a385 60%, #9e8766 100%); box-shadow: inset 0 0 12px rgba(0,0,0,0.3); transition: all 0.3s; }
+        .dark-square { background: radial-gradient(circle at center, #3d2415 0%, #201109 60%, #140904 100%); box-shadow: inset 0 0 18px rgba(0,0,0,0.7); transition: all 0.3s; }
         .void-square { background: #030101; box-shadow: inset 0 0 30px #000; border: 1px solid #1a0505; }
         
         .blood-stain::after {
@@ -56,8 +56,12 @@
         .eval-jitter { animation: jitter 0.1s infinite; }
         @keyframes jitter { 0%, 100% { transform: translateY(0); opacity: 1; } 50% { transform: translateY(1px); opacity: 0.9; } }
 
-        #flesh-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 15; mix-blend-mode: hard-light; opacity: 0; transition: opacity 4s ease-in; }
+        /* Mix-blend mode removed so the eyes remain correctly colored and visible! */
+        #flesh-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 15; opacity: 0; transition: opacity 4s ease-in; }
         .selected { background: radial-gradient(circle at center, rgba(200, 150, 50, 0.4), transparent) !important; box-shadow: inset 0 0 20px rgba(200, 150, 50, 0.6) !important; }
+
+        .check-danger { background: radial-gradient(circle at center, #8a1010 0%, #4a0505 60%, #1a0202 100%) !important; box-shadow: inset 0 0 25px rgba(255, 0, 0, 0.5) !important; animation: pulse-danger 1s infinite; }
+        @keyframes pulse-danger { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.3); } }
 
         /* Endgames & Overlays */
         #oblivion-screen { pointer-events: none; opacity: 0; transition: opacity 5s ease-in; background: radial-gradient(circle at center, #1a0505, #000); }
@@ -112,6 +116,18 @@
         </defs>
     </svg>
 
+    <!-- Admin Tools Toggle & Sidebar -->
+    <button onclick="toggleAdmin()" class="fixed top-3 left-3 z-[100] bg-[#1a0505] border border-[#610202] text-[#b8453a] px-3 py-1 text-xs font-mono tracking-widest uppercase hover:bg-[#3a0a0a] hover:text-[#ff6b5e] shadow-lg transition-colors">Admin Tools</button>
+    <div id="admin-panel" class="fixed top-0 left-0 h-full w-64 bg-[#0a0503] border-r border-[#2b0808] z-[90] transform -translate-x-full transition-transform duration-300 p-4 pt-16 flex flex-col gap-4 shadow-2xl">
+        <h2 class="text-[#8c6b54] font-serif text-sm uppercase tracking-widest border-b border-[#2b0808] pb-2 text-center">Force Events</h2>
+        <button onclick="forcePhase(1)" class="text-left text-xs text-[#d1c0b0] hover:text-[#4ade80] py-1 border-b border-[#1a0505]">Phase 1: Normal</button>
+        <button onclick="forcePhase(2)" class="text-left text-xs text-[#d1c0b0] hover:text-[#4ade80] py-1 border-b border-[#1a0505]">Phase 2: Cheating Ai</button>
+        <button onclick="forcePhase(3)" class="text-left text-xs text-[#d1c0b0] hover:text-[#4ade80] py-1 border-b border-[#1a0505]">Phase 3: Flesh Maw</button>
+        <button onclick="triggerNightmareMaze()" class="text-left text-xs text-[#b8453a] hover:text-[#ff6b5e] py-1 border-b border-[#1a0505]">Event: Rare Maze</button>
+        <button onclick="triggerRogueEndgame()" class="text-left text-xs text-[#b8453a] hover:text-[#ff6b5e] py-1 border-b border-[#1a0505]">Phase 4: 3D Royale</button>
+        <button onclick="resurrectGame()" class="text-left text-xs text-[#8c6b54] hover:text-[#d1c0b0] mt-auto uppercase tracking-widest text-center py-2 border border-[#2b0808]">Reset Match</button>
+    </div>
+
     <div class="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,0.95)_100%)] z-40"></div>
     
     <div id="oblivion-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center text-[#610202]">
@@ -133,11 +149,11 @@
     <div id="rogue-container" class="fixed inset-0 z-50" style="display:none; background:#050001;">
         <canvas id="rogue-canvas" style="width:100%; height:100%; display:block;"></canvas>
         <div id="rogue-damage-flash" class="fixed inset-0 pointer-events-none" style="background:#8c1c1c; opacity:0; transition:opacity 0.25s ease-out; z-index:51;"></div>
-        <div class="absolute top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none w-full">
+        <div class="absolute top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none w-full z-52">
             <h1 class="gothic-title text-3xl tracking-widest text-[#b8453a]">THE BOARD HAS RISEN</h1>
-            <p class="text-xs tracking-[0.4em] text-[#8c6b54] opacity-70 mt-2 animate-pulse">CLICK TO LOOK -- WASD TO ATTACK -- THE WALLS ARE CLOSING</p>
+            <p class="text-xs tracking-[0.4em] text-[#8c6b54] opacity-70 mt-2 animate-pulse">CLICK TO LOOK -- WASD TO MOVE/ATTACK -- THE WALLS ARE CLOSING</p>
         </div>
-        <div id="rogue-hp" class="absolute bottom-8 left-1/2 -translate-x-1/2 text-center pointer-events-none tracking-[0.5em] text-[#b8453a] gothic-title text-sm"></div>
+        <div id="rogue-hp" class="absolute bottom-8 left-1/2 -translate-x-1/2 text-center pointer-events-none tracking-[0.5em] text-[#b8453a] gothic-title text-sm z-52"></div>
     </div>
 
     <div id="rogue-victory-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center text-[#d4af37]">
@@ -147,7 +163,7 @@
     </div>
 
     <header class="w-full py-4 px-8 border-b border-[#2d1c14] bg-[#0c0705] flex items-center justify-between z-30 relative ui-panel">
-        <div>
+        <div class="ml-24">
             <h1 class="gothic-title text-2xl font-bold text-[#d1c0b0] tracking-widest uppercase text-shadow-md">The Chess Club</h1>
             <p class="text-xs text-[#8c6b54] italic font-serif">Academic Regulations Apply</p>
         </div>
@@ -186,6 +202,32 @@
     </main>
 
     <script>
+        // ==========================================
+        // ADMIN PANEL
+        // ==========================================
+        let adminOpen = false;
+        function toggleAdmin() {
+            adminOpen = !adminOpen;
+            const panel = document.getElementById('admin-panel');
+            if(adminOpen) panel.classList.remove('-translate-x-full');
+            else panel.classList.add('-translate-x-full');
+        }
+
+        function forcePhase(p) {
+            gamePhase = p;
+            if(p === 1) fullMoves = 7;
+            if(p === 2) fullMoves = 13;
+            if(p === 3) {
+                fullMoves = 19;
+                document.getElementById('flesh-canvas').style.opacity = '0.9';
+                lastConsumeTime = Date.now() - 10000;
+                animateFlesh();
+            }
+            updateEvalUI();
+            renderBoard();
+            toggleAdmin(); // Auto-close
+        }
+
         // ==========================================
         // ASSETS, CONSTANTS & STATE
         // ==========================================
@@ -234,16 +276,17 @@
         let lastConsumeTime = 0;
         let mazeActive = false;
 
-        // A king lost to the Flesh doesn't end the match -- but checkEndgame must know not to re-trigger.
+        // A king lost to the Flesh doesn't end the match
         let kingDevoured = {w: false, b: false};
 
-        // The Castle Curse: invoking it shocks the eval bar against whoever used it.
+        // The Castle Curse
         let curseShock = 0;
         const CURSE_PENALTY = 700;
 
-        // Phase 4: The Rogue Endgame (Three.js)
+        // Phase 4: The Rogue Endgame
         let rogueActive = false;
         let rogueHP = 3;
+        let playerBuffed = false; // The royal guard buff for 1v1
 
         // ==========================================
         // PROCEDURAL AUDIO ENGINE
@@ -305,7 +348,6 @@
             osc.type = 'square'; osc.frequency.setValueAtTime(50, now);
             gain.gain.setValueAtTime(1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
             
-            // White noise burst for crunch
             const bufferSize = audioCtx.sampleRate * 0.5;
             const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
             const data = buffer.getChannelData(0);
@@ -323,7 +365,6 @@
             noise.start(now); noise.stop(now + 0.5);
         }
 
-        // A single sharp inhale: fast attack, quick rising sweep, fast decay.
         function playSingleSniff(startTime) {
             const bufferSize = audioCtx.sampleRate * 0.15;
             const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
@@ -332,8 +373,7 @@
             const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
 
             const filter = audioCtx.createBiquadFilter();
-            filter.type = 'bandpass';
-            filter.Q.value = 5;
+            filter.type = 'bandpass'; filter.Q.value = 5;
             filter.frequency.setValueAtTime(300, startTime);
             filter.frequency.exponentialRampToValueAtTime(1500, startTime + 0.08);
 
@@ -346,7 +386,6 @@
             noise.start(startTime); noise.stop(startTime + 0.15);
         }
 
-        // A burst of 2-3 quick sniffs in a row -- continuous, not a slow exhale.
         function playSniff() {
             if(gamePhase < 3 || mazeActive || rogueActive || !gameActive || Math.random() > 0.4) return;
             const now = audioCtx.currentTime;
@@ -362,7 +401,6 @@
         // ==========================================
         const VALS = {'P':100, 'N':320, 'B':330, 'R':500, 'Q':900, 'K':20000};
 
-        // Piece-Square Tables (row 0 = rank 8 / Black's home side, matches board[r][c] orientation)
         const PST = {
             'P': [[0,0,0,0,0,0,0,0],[50,50,50,50,50,50,50,50],[10,10,20,30,30,20,10,10],[5,5,10,25,25,10,5,5],[0,0,0,20,20,0,0,0],[5,-5,-10,0,0,-10,-5,5],[5,10,10,-20,-20,10,10,5],[0,0,0,0,0,0,0,0]],
             'N': [[-50,-40,-30,-30,-30,-30,-40,-50],[-40,-20,0,0,0,0,-20,-40],[-30,0,10,15,15,10,0,-30],[-30,5,15,20,20,15,5,-30],[-30,0,15,20,20,15,0,-30],[-30,5,10,15,15,10,5,-30],[-40,-20,0,5,5,0,-20,-40],[-50,-40,-30,-30,-30,-30,-40,-50]],
@@ -372,7 +410,6 @@
             'K': [[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-20,-30,-30,-40,-40,-30,-30,-20],[-10,-20,-20,-20,-20,-20,-20,-10],[20,20,-5,-5,-5,-5,20,20],[20,30,10,0,0,10,30,20]]
         };
 
-        // Material + positional evaluation. Positive favors White. Accepts board snapshots for search.
         function evaluateBoard(b = board, ts = tileStatus) {
             let score = 0;
             for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
@@ -382,6 +419,26 @@
                 score += p.color === 'w' ? val : -val;
             }
             return score;
+        }
+
+        // Checks if a given King color is currently under attack (in check)
+        function isKingInCheck(color, b = board) {
+            let kR = -1, kC = -1;
+            for(let r=0; r<8; r++) {
+                for(let c=0; c<8; c++) {
+                    if(b[r][c] && b[r][c].color === color && b[r][c].type === 'K') {
+                        kR = r; kC = c; break;
+                    }
+                }
+                if(kR !== -1) break;
+            }
+            if(kR === -1) return false;
+            let oppColor = color === 'w' ? 'b' : 'w';
+            let oppMoves = getPseudoMoves(oppColor, b, tileStatus);
+            for(let i=0; i<oppMoves.length; i++) {
+                if(oppMoves[i].tr === kR && oppMoves[i].tc === kC) return true;
+            }
+            return false;
         }
 
         function getPseudoMoves(color, b = board, ts = tileStatus) {
@@ -437,7 +494,7 @@
             return moves;
         }
 
-        // --- Minimax with Alpha-Beta Pruning (Grandmaster-strength simulation) ---
+        // --- Minimax with Alpha-Beta Pruning ---
         function cloneBoard(b) {
             return b.map(row => row.map(cell => cell ? {...cell} : null));
         }
@@ -445,8 +502,8 @@
         function simulateMove(b, move) {
             let nb = cloneBoard(b);
             let p = nb[move.fr][move.fc];
-            if(p.type === 'P' && (move.tr === 0 || move.tr === 7)) p = {color: p.color, type: 'Q'}; // Promo
-            else if(move.cursed) p = {...p, curseUsed: true}; // spend this Rook's one snipe
+            if(p.type === 'P' && (move.tr === 0 || move.tr === 7)) p = {color: p.color, type: 'Q'}; 
+            else if(move.cursed) p = {...p, curseUsed: true}; 
             nb[move.tr][move.tc] = p;
             nb[move.fr][move.fc] = null;
             return nb;
@@ -457,7 +514,6 @@
             let moves = getPseudoMoves(isWhiteToMove ? 'w' : 'b', b, ts);
             if(moves.length === 0) return evaluateBoard(b, ts);
 
-            // Capture-first ordering for better alpha-beta cutoffs
             moves.sort((m1, m2) => (b[m2.tr][m2.tc] ? VALS[b[m2.tr][m2.tc].type] : 0) - (b[m1.tr][m1.tc] ? VALS[b[m1.tr][m1.tc].type] : 0));
 
             let best = isWhiteToMove ? -Infinity : Infinity;
@@ -470,7 +526,6 @@
             return best;
         }
 
-        // Best (or near-best, for high-but-not-perfect ELO) move for `color`.
         function findBestMove(color, depth, accurate = false) {
             let moves = getPseudoMoves(color);
             if(moves.length === 0) return null;
@@ -479,8 +534,6 @@
             scored.sort((a, b) => isWhite ? b.val - a.val : a.val - b.val);
 
             if(accurate) return scored[0].m;
-
-            // Ruthless, but fallible: mostly the top move, occasionally a near-best one.
             let roll = Math.random();
             let pick = 0;
             if(scored.length > 1 && roll > 0.7) pick = 1;
@@ -488,14 +541,12 @@
             return scored[pick].m;
         }
 
-        // The worst (most damaging) move for `color` -- still a real, executable move.
-        // Used by corrupted EZ Mode to gaslight: "this is great" while handing you a blunder.
         function findWorstMove(color, depth) {
             let moves = getPseudoMoves(color);
             if(moves.length === 0) return null;
             let isWhite = color === 'w';
             let scored = moves.map(m => ({ m, val: minimax(simulateMove(board, m), tileStatus, depth - 1, !isWhite, -Infinity, Infinity) }));
-            scored.sort((a, b) => isWhite ? a.val - b.val : b.val - a.val); // worst-for-color first
+            scored.sort((a, b) => isWhite ? a.val - b.val : b.val - a.val); 
             return scored[0].m;
         }
 
@@ -510,7 +561,6 @@
             if(ambientOsc) ambientOsc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 3);
         }
 
-        // The Wall of Flesh claims a king: a wholly different fate than checkmate. The match continues.
         function triggerFleshMaw(kingColor) {
             kingDevoured[kingColor] = true;
             let name = kingColor === 'w' ? 'White' : 'Black';
@@ -524,7 +574,6 @@
             playFleshCrunch();
         }
 
-        // Clean full-state reset for "Ressurect"
         function resurrectGame() {
             board = getInitialBoard();
             tileStatus = Array(8).fill().map(() => Array(8).fill(0));
@@ -541,11 +590,10 @@
             curseShock = 0;
             kingDevoured = {w:false, b:false};
             rogueHP = 3;
+            playerBuffed = false;
 
-            // Tear down the Rogue Endgame if it's running
             if(rogueActive) exitRogueMode();
 
-            // Hide all overlays
             const oblivion = document.getElementById('oblivion-screen');
             oblivion.style.opacity = '0'; oblivion.style.pointerEvents = 'none';
             const maw = document.getElementById('flesh-maw-screen');
@@ -555,23 +603,20 @@
             const maze = document.getElementById('maze-container');
             maze.style.opacity = '0'; maze.style.display = 'none';
             document.getElementById('main-content').classList.remove('glitch-fx');
+            document.getElementById('rogue-hp').innerHTML = ""; // Clear visual buff logs
 
-            // Reset HUD
             document.getElementById('eval-bar-container').classList.remove('eval-jitter');
             document.getElementById('eval-bar-black').style.height = '50%';
             document.getElementById('eval-bar-white').style.height = '50%';
             document.getElementById('eval-score').textContent = '+0.0';
             document.getElementById('thinking-indicator').style.opacity = '0';
 
-            // Reset flesh canvas
             fCanvas.style.opacity = '0';
             fCtx.clearRect(0, 0, fCanvas.width, fCanvas.height);
 
-            // Restore EZ Mode colors from any corruption
             document.documentElement.style.setProperty('--ez-color', 'rgba(34, 197, 94, 0.85)');
             document.documentElement.style.setProperty('--ez-glow', 'rgba(34, 197, 94, 0.5)');
 
-            // Revive the ambient drone
             if(ambientOsc) {
                 ambientOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
                 ambientOsc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 1);
@@ -579,6 +624,7 @@
 
             renderBoard();
             updateEZMode();
+            if(adminOpen) toggleAdmin();
         }
 
         document.getElementById('resurrect-btn-oblivion').onclick = resurrectGame;
@@ -605,7 +651,6 @@
             document.getElementById('thinking-indicator').style.opacity = '1';
             playHeartbeat();
             
-            // Force agonizing tempo
             const delay = 1500 + Math.random() * 2000;
             await new Promise(r => setTimeout(r, delay));
             
@@ -615,7 +660,6 @@
             let moves = getPseudoMoves('b');
             if(moves.length === 0) return checkEndgame();
             
-            // Grandmaster-level search before the cheating phases take over.
             let searchDepth = gamePhase === 0 ? 3 : 2;
             let move = findBestMove('b', searchDepth) || moves[Math.floor(Math.random() * moves.length)];
             
@@ -624,7 +668,8 @@
                 let aiPieces = [], plPieces = [];
                 for(let r=0;r<8;r++) for(let c=0;c<8;c++) {
                     if(board[r][c]?.color==='b' && tileStatus[r][c]!==2) aiPieces.push({r,c});
-                    if(board[r][c]?.color==='w' && tileStatus[r][c]!==2) plPieces.push({r,c});
+                    // Restriction: Cannot teleport to row 7 (White's back rank) or eat the Player's King!
+                    if(board[r][c]?.color==='w' && tileStatus[r][c]!==2 && r !== 7 && board[r][c].type !== 'K') plPieces.push({r,c});
                 }
                 if(aiPieces.length && plPieces.length) {
                     let a = aiPieces[Math.floor(Math.random()*aiPieces.length)];
@@ -638,7 +683,7 @@
         function executeMove(fr, fc, tr, tc, cursed = false) {
             let cap = board[tr][tc];
             let p = board[fr][fc];
-            if (p.type === 'P' && (tr === 0 || tr === 7)) p = { color: p.color, type: 'Q' }; // Promo
+            if (p.type === 'P' && (tr === 0 || tr === 7)) p = { color: p.color, type: 'Q' }; 
             
             board[tr][tc] = p;
             board[fr][fc] = null;
@@ -647,9 +692,8 @@
             else playThud(false);
 
             if(cursed) {
-                // The curse always exacts its toll: the eval visibly turns against whoever invoked it.
                 curseShock += (p.color === 'w' ? -CURSE_PENALTY : CURSE_PENALTY);
-                p.curseUsed = true; // this Rook has spent its one snipe
+                p.curseUsed = true; 
                 document.getElementById('main-content').classList.add('glitch-fx');
                 setTimeout(() => document.getElementById('main-content').classList.remove('glitch-fx'), 200);
             }
@@ -692,6 +736,10 @@
         function renderBoard() {
             const container = document.getElementById('chessboard');
             container.innerHTML = '';
+            
+            // Check indicator computation for warning visualization
+            let wCheck = gameActive && isWhiteTurn && isKingInCheck('w');
+
             for(let r=0; r<8; r++) {
                 for(let c=0; c<8; c++) {
                     let isLight = (r+c)%2===0;
@@ -701,6 +749,7 @@
                     if(tileStatus[r][c] === 1) sq.classList.add('blood-stain');
                     else if(tileStatus[r][c] === 2) sq.className = 'w-full h-full flex items-center justify-center relative void-square';
                     
+                    if(wCheck && !isLight && tileStatus[r][c] !== 2 && tileStatus[r][c] !== 1) sq.classList.add('check-danger');
                     if(selectedSq && selectedSq.r===r && selectedSq.c===c) sq.classList.add('selected');
                     if(ezMove && ezMode && isWhiteTurn && ((r===ezMove.fr && c===ezMove.fc) || (r===ezMove.tr && c===ezMove.tc))) sq.classList.add('ez-highlight');
 
@@ -735,11 +784,10 @@
         function updateEZMode() {
             if(!ezMode) { ezMove = null; renderBoard(); return; }
             if(fullMoves <= 6) {
-                ezMove = findBestMove('w', 3, true); // Accurate, tactical, no lies yet
+                ezMove = findBestMove('w', 3, true); 
             } else {
                 document.documentElement.style.setProperty('--ez-color', `rgba(180, 20, 20, 0.9)`);
                 document.documentElement.style.setProperty('--ez-glow', `rgba(180, 20, 20, 0.5)`);
-                // A fresh lie every round -- but it's a REAL move you can actually make. That's the trap.
                 ezMove = findWorstMove('w', 2);
             }
             renderBoard();
@@ -756,7 +804,6 @@
         const fCanvas = document.getElementById('flesh-canvas');
         const fCtx = fCanvas.getContext('2d');
 
-        // Wavy, layered organic silhouette for the Wall of Flesh
         function drawFleshBlob(ctx, width, baseline, time, scale) {
             ctx.beginPath();
             ctx.moveTo(0, 0);
@@ -771,13 +818,12 @@
 
         function animateFlesh() {
             if(gamePhase < 3 || !gameActive) return;
-            if(mazeActive) { requestAnimationFrame(animateFlesh); return; } // Pause rendering during maze
+            if(mazeActive) { requestAnimationFrame(animateFlesh); return; } 
             
             fCanvas.width = fCanvas.offsetWidth; fCanvas.height = fCanvas.offsetHeight;
             fCtx.clearRect(0, 0, fCanvas.width, fCanvas.height);
             let time = Date.now() * 0.001;
             
-            // Independent Consumption Check
             let now = Date.now();
             if(now - lastConsumeTime > 13000 + Math.random()*2000) {
                 lastConsumeTime = now;
@@ -791,13 +837,10 @@
                     }
                     fleshConsumedRows++;
                     renderBoard();
-                    if(devouredKing) {
-                        // Failsafe: a king lost to the environment is NOT a checkmate. The match continues.
-                        triggerFleshMaw(devouredKing);
-                    }
+                    if(devouredKing) { triggerFleshMaw(devouredKing); }
                     checkEndgame();
                     if(gameActive && fleshConsumedRows >= 4) {
-                        triggerRogueEndgame(); // The board has risen. Turns are over.
+                        triggerRogueEndgame(); 
                         return;
                     } else if(gameActive && !devouredKing && Math.random() < 0.15) {
                         triggerNightmareMaze();
@@ -809,7 +852,6 @@
             let pulse = Math.sin(time * 1.5) * 4;
             let baseY = fleshY + 14 + pulse;
 
-            // Find closest piece for eye tracking
             let tx=fCanvas.width/2, ty=fCanvas.height;
             let closestDist = Infinity;
             for(let r=fleshConsumedRows; r<8; r++) {
@@ -822,7 +864,6 @@
                 }
             }
 
-            // Draw Organic Mass -- layered, fleshy, pulsing (not a flat black block)
             fCtx.fillStyle = '#0d0102';
             drawFleshBlob(fCtx, fCanvas.width, baseY + 16, time * 0.9, 1.1);
 
@@ -833,7 +874,6 @@
             fCtx.fillStyle = grad;
             drawFleshBlob(fCtx, fCanvas.width, baseY, time, 1);
 
-            // Pulsing veins running through the mass
             fCtx.strokeStyle = 'rgba(150, 15, 25, 0.45)';
             fCtx.lineWidth = 1.5;
             for(let i=0; i<6; i++) {
@@ -848,7 +888,7 @@
                 fCtx.stroke();
             }
 
-            // Eyes -- always visible (no longer skipped off-screen), blinking, tracking the nearest victim
+            // Fixed Eyes Blend - properly rendering as white/red instead of darkening against the background
             for(let i=0; i<4; i++) {
                 let ex = fCanvas.width * (0.14 + i*0.24);
                 let ey = Math.max(18, baseY - 24 + Math.sin(time*1.2 + i*1.7)*8);
@@ -858,21 +898,19 @@
                 fCtx.translate(ex, ey);
                 fCtx.scale(1, blink);
 
-                fCtx.fillStyle = '#d1c0b0'; // Sclera
+                fCtx.fillStyle = '#e8d8c8'; // Sclera slightly brighter
                 fCtx.beginPath(); fCtx.ellipse(0, 0, 15, 11, 0, 0, Math.PI*2); fCtx.fill();
 
-                // Tracking Pupil
                 let angle = Math.atan2(ty - ey, tx - ex);
                 let px = Math.cos(angle)*5, py = Math.sin(angle)*3.5;
 
                 fCtx.fillStyle = '#110000';
                 fCtx.beginPath(); fCtx.arc(px, py, 5.5, 0, Math.PI*2); fCtx.fill();
-                fCtx.fillStyle = '#8a0202'; // Veins
+                fCtx.fillStyle = '#8a0202'; 
                 fCtx.beginPath(); fCtx.arc(px, py, 2, 0, Math.PI*2); fCtx.fill();
                 fCtx.restore();
             }
 
-            // Snout & flaring nostrils
             let nx = fCanvas.width/2 + Math.sin(time*15)*2;
             let ny = Math.max(26, baseY - 6);
             let flare = 1 + Math.sin(time*8)*0.18;
@@ -893,7 +931,6 @@
         const mCanvas = document.getElementById('maze-canvas');
         const mCtx = mCanvas.getContext('2d', {alpha: false});
         
-        // Map: 0=Floor, 1=Wall, 2=Exit
         const map = [
             [1,1,1,1,1,1,1,1,1,1],
             [1,0,0,0,0,0,1,0,2,1],
@@ -920,8 +957,8 @@
             setTimeout(() => {
                 document.getElementById('maze-container').style.display = 'flex';
                 document.getElementById('maze-container').style.opacity = '1';
-                pX=1.5; pY=1.5; dX=1; dY=0; plX=0; plY=0.66; // Reset pos
-                enemies = [{x:8.5, y:8.5}, {x:1.5, y:8.5}]; // Reset enemies
+                pX=1.5; pY=1.5; dX=1; dY=0; plX=0; plY=0.66;
+                enemies = [{x:8.5, y:8.5}, {x:1.5, y:8.5}]; 
                 mazeLoop();
             }, 200);
         }
@@ -929,14 +966,12 @@
         function mazeLoop() {
             if(!mazeActive || !gameActive) return;
             
-            // Movement
             let ms = 0.05, rs = 0.04;
             if(keys.w) { if(map[Math.floor(pY)][Math.floor(pX+dX*ms)]===0) pX+=dX*ms; if(map[Math.floor(pY+dY*ms)][Math.floor(pX)]===0) pY+=dY*ms; }
             if(keys.s) { if(map[Math.floor(pY)][Math.floor(pX-dX*ms)]===0) pX-=dX*ms; if(map[Math.floor(pY-dY*ms)][Math.floor(pX)]===0) pY-=dY*ms; }
             if(keys.a) { let odX=dX; dX=dX*Math.cos(-rs)-dY*Math.sin(-rs); dY=odX*Math.sin(-rs)+dY*Math.cos(-rs); let oplX=plX; plX=plX*Math.cos(-rs)-plY*Math.sin(-rs); plY=oplX*Math.sin(-rs)+plY*Math.cos(-rs); }
             if(keys.d) { let odX=dX; dX=dX*Math.cos(rs)-dY*Math.sin(rs); dY=odX*Math.sin(rs)+dY*Math.cos(rs); let oplX=plX; plX=plX*Math.cos(rs)-plY*Math.sin(rs); plY=oplX*Math.sin(rs)+plY*Math.cos(rs); }
 
-            // Check Exit
             if(map[Math.floor(pY)][Math.floor(pX)] === 2) {
                 mazeActive = false;
                 document.getElementById('maze-container').style.opacity = '0';
@@ -945,15 +980,13 @@
                 return;
             }
 
-            // Enemies Move & Check Collision
             for(let e of enemies) {
                 let edx = pX - e.x, edy = pY - e.y;
                 let dist = Math.hypot(edx, edy);
                 if(dist < 0.4) return triggerOblivion("You were caught in the void.");
                 if(dist < 5) {
-                    e.x += (edx/dist)*0.02; e.y += (edy/dist)*0.02; // Hunt
+                    e.x += (edx/dist)*0.02; e.y += (edy/dist)*0.02; 
                     if(Math.random() < 0.05 && audioCtx.state !== 'suspended') {
-                        // Screech
                         let osc = audioCtx.createOscillator();
                         let g = audioCtx.createGain();
                         osc.type = 'sawtooth'; osc.frequency.value = 1000 + Math.random()*1000;
@@ -964,10 +997,9 @@
                 }
             }
 
-            // Raycaster Rendering
             let w = mCanvas.width, h = mCanvas.height;
-            mCtx.fillStyle = '#050202'; mCtx.fillRect(0,0,w,h/2); // Ceiling
-            mCtx.fillStyle = '#140502'; mCtx.fillRect(0,h/2,w,h/2); // Floor
+            mCtx.fillStyle = '#050202'; mCtx.fillRect(0,0,w,h/2); 
+            mCtx.fillStyle = '#140502'; mCtx.fillRect(0,h/2,w,h/2); 
 
             let zBuffer = [];
 
@@ -1000,7 +1032,6 @@
                 mCtx.fillRect(x, start, 1, end-start);
             }
 
-            // Render Enemies (Sprites)
             for(let e of enemies) {
                 let sx = e.x - pX, sy = e.y - pY;
                 let invDet = 1.0 / (plX * dY - dX * plY);
@@ -1015,7 +1046,7 @@
                     
                     for(let stripe = sxStart; stripe < sxStart + sw; stripe++) {
                         if(stripe > 0 && stripe < w && tfY < zBuffer[stripe]) {
-                            mCtx.fillStyle = '#000'; // Black Sentinel silhouette
+                            mCtx.fillStyle = '#000'; 
                             mCtx.fillRect(stripe, syStart, 1, sh);
                         }
                     }
@@ -1028,18 +1059,17 @@
         // ==========================================
         // PHASE 4: THE ROGUE ENDGAME (Three.js)
         // ==========================================
-        const CELL = 2.4;          // board scale -- a much bigger arena
-        const PSCALE = 1.7;        // piece model scale
+        const CELL = 2.4;          
+        const PSCALE = 1.7;        
         const WALL_THICK = CELL * 1.1;
         const WALL_HEIGHT = CELL * 3.5;
         const WALL_LEN = CELL * 18;
         const ARENA_START = CELL * 5.4;
         const ARENA_MIN = CELL * 1.6;
-        const WALL_SHRINK_RATE = CELL * 0.05;  // units/sec -- the walls of flesh close in
+        const WALL_SHRINK_RATE = CELL * 0.05;  
         const SWORD_RANGE = CELL * 1.3;
         const SWORD_CONE = 0.4;
-        const BITE_RANGE = CELL * 0.45;
-        const ENEMY_SPEED = CELL * 0.7;
+        const ENEMY_SPEED = CELL * 0.8;
         const PLAYER_SPEED = CELL * 1.15;
 
         let rogueRenderer, rogueScene, rogueCamera, rogueClock;
@@ -1056,7 +1086,6 @@
 
         const ROGUE_COLORS = { w: 0xe6d8c3, b: 0x241410 };
 
-        // Multi-part piece models -- bigger, more detailed than a single primitive
         function makePieceMesh(type, color) {
             let group = new THREE.Group();
             let mat = new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.3 });
@@ -1112,7 +1141,7 @@
                     group.add(body, top);
                     break;
                 }
-                default: { // King -- only the Black King spawns here; you ARE the White King
+                default: { 
                     let body = new THREE.Mesh(new THREE.CylinderGeometry(0.24*PSCALE, 0.32*PSCALE, 0.6*PSCALE, 12), mat);
                     body.position.y = 0.3*PSCALE;
                     let crown = new THREE.Mesh(new THREE.SphereGeometry(0.16*PSCALE, 10, 10), mat);
@@ -1125,6 +1154,18 @@
                     break;
                 }
             }
+            return group;
+        }
+
+        // Generate tiny swords for the enemy pieces
+        function makeEnemySword() {
+            let group = new THREE.Group();
+            let bladeMat = new THREE.MeshStandardMaterial({color:0x888888, metalness:0.5, roughness:0.5});
+            let blade = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.7, 0.12), bladeMat);
+            blade.position.y = 0.35;
+            group.add(blade);
+            group.position.set(0.3 * PSCALE, 0.4 * PSCALE, 0.3 * PSCALE);
+            group.rotation.set(Math.PI/3, 0, 0);
             return group;
         }
 
@@ -1157,7 +1198,6 @@
             return new THREE.CanvasTexture(canvas);
         }
 
-        // A living wall: a fleshy slab studded with pulsing boils and a watching eye
         function makeFleshWall(horizontal, fleshTex) {
             let group = new THREE.Group();
             let mat = new THREE.MeshStandardMaterial({ map: fleshTex, color: 0xaa3333, emissive: 0x550000, roughness: 0.9 });
@@ -1194,7 +1234,6 @@
             return group;
         }
 
-        // A first-person sword -- the White King fights for itself
         function makeSword() {
             let group = new THREE.Group();
             let bladeMat = new THREE.MeshStandardMaterial({color:0xcfd8dc, metalness:0.85, roughness:0.25, emissive:0x222222});
@@ -1215,12 +1254,12 @@
             return group;
         }
 
-        // Triggered once the Flesh has consumed half the board: every piece goes rogue, turns are over.
         function triggerRogueEndgame() {
             if(rogueActive) return;
             rogueActive = true;
             gameActive = false;
             rogueHP = 3;
+            playerBuffed = false;
             arenaHalfExtent = ARENA_START;
             swordSwingT = 0;
 
@@ -1240,13 +1279,11 @@
             const floorTex = makeFloorTexture();
             const fleshTex = makeFleshTexture();
 
-            // Ground beyond the board -- the flesh already fills the gap before the walls arrive
             let ground = new THREE.Mesh(new THREE.PlaneGeometry(WALL_LEN, WALL_LEN), new THREE.MeshStandardMaterial({ map: fleshTex, color: 0x661a1a, emissive: 0x330000, roughness: 0.95 }));
             ground.rotation.x = -Math.PI / 2;
             ground.position.y = -0.05;
             rogueScene.add(ground);
 
-            // The 8x8 board -- rows already consumed by the Flesh just show the ground beneath
             for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
                 if(tileStatus[r][c] === 2) continue;
                 let mat = new THREE.MeshStandardMaterial({ map: floorTex, color: 0xffffff, roughness: 0.85 });
@@ -1256,7 +1293,6 @@
                 rogueScene.add(tile);
             }
 
-            // The Walls of Flesh -- closing in from all four sides
             rogueWalls = {
                 n: makeFleshWall(true, fleshTex),
                 s: makeFleshWall(true, fleshTex),
@@ -1265,20 +1301,17 @@
             };
             for(let k in rogueWalls) rogueScene.add(rogueWalls[k]);
 
-            // Lighting -- a sickly red glow from the encroaching flesh
             rogueScene.add(new THREE.AmbientLight(0x442222, 0.9));
             const fleshLight = new THREE.PointLight(0xff3322, 2.5, CELL * 10);
             fleshLight.position.set(0, CELL * 2.5, 0);
             rogueScene.add(fleshLight);
 
-            // Sword + a light that follows the player
             rogueSword = makeSword();
             rogueCamera.add(rogueSword);
             const playerLight = new THREE.PointLight(0xffe0c0, 1.0, CELL * 5);
             rogueCamera.add(playerLight);
             rogueScene.add(rogueCamera);
 
-            // Every surviving piece (except the White King -- that's YOU) becomes a free agent
             rogueEntities = [];
             let kingPos = null;
             for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
@@ -1288,14 +1321,19 @@
                     kingPos = new THREE.Vector3((c - 3.5) * CELL, 0, (r - 3.5) * CELL);
                     continue;
                 }
+                
                 let mesh = makePieceMesh(p.type, ROGUE_COLORS[p.color]);
+                let eSword = makeEnemySword(); // Attach a sword to the enemy pieces
+                mesh.add(eSword);
+                mesh.userData.sword = eSword;
+                mesh.userData.swingT = 0;
+                
                 mesh.position.x = (c - 3.5) * CELL;
                 mesh.position.z = (r - 3.5) * CELL;
                 rogueScene.add(mesh);
-                rogueEntities.push({ mesh, color: p.color, type: p.type });
+                rogueEntities.push({ mesh, color: p.color, type: p.type, dead: false });
             }
 
-            // The player becomes the White King's vantage point
             let start = kingPos || new THREE.Vector3(0, 0, CELL * 1.5);
             rogueCamera.position.set(start.x, CELL * 0.5, start.z);
             rogueYaw = Math.PI; roguePitch = 0;
@@ -1319,24 +1357,23 @@
             roguePitch = Math.max(-1.2, Math.min(1.2, roguePitch));
         }
 
-        // Swing the sword: anything in front of you, within range, dies.
         function rogueAttack() {
             if(!rogueActive || swordSwingT > 0) return;
             swordSwingT = 1;
             playThud(true);
             let camDir = new THREE.Vector3(0, 0, -1).applyQuaternion(rogueCamera.quaternion);
-            for(let i = rogueEntities.length - 1; i >= 0; i--) {
+            for(let i = 0; i < rogueEntities.length; i++) {
                 let e = rogueEntities[i];
                 let toEntity = new THREE.Vector3().subVectors(e.mesh.position, rogueCamera.position);
-                let dist = toEntity.length();
-                if(dist > SWORD_RANGE) continue;
+                if(toEntity.length() > SWORD_RANGE) continue;
                 toEntity.normalize();
                 if(toEntity.dot(camDir) > SWORD_CONE) {
+                    e.dead = true;
                     rogueScene.remove(e.mesh);
-                    rogueEntities.splice(i, 1);
                     playFleshCrunch();
                 }
             }
+            rogueEntities = rogueEntities.filter(e => !e.dead);
             checkRogueWin();
         }
 
@@ -1345,12 +1382,17 @@
             const flash = document.getElementById('rogue-damage-flash');
             flash.style.opacity = '0.45';
             setTimeout(() => { flash.style.opacity = '0'; }, 250);
+            updateRogueHUD();
             if(rogueHP <= 0) triggerRogueDefeat();
         }
 
         function updateRogueHUD() {
             let hud = document.getElementById('rogue-hp');
-            if(hud) hud.textContent = "THE KING'S BLOOD: " + '\u2665 '.repeat(Math.max(0, rogueHP)) + '\u2715 '.repeat(Math.max(0, 3 - rogueHP));
+            if(hud && rogueActive) {
+                let text = "THE KING'S BLOOD: " + '\u2665 '.repeat(Math.max(0, rogueHP)) + '\u2715 '.repeat(Math.max(0, 3 - rogueHP));
+                if (playerBuffed) text = "<span style='color:#d4af37; font-size:1.5em; text-shadow:0 0 10px #d4af37'>FINAL DUEL - ROYAL GUARD BUFF</span><br/>" + text;
+                hud.innerHTML = text;
+            }
         }
 
         function checkRogueWin() {
@@ -1390,7 +1432,7 @@
             rogueCamera.rotation.y = rogueYaw;
             rogueCamera.rotation.x = roguePitch;
 
-            // Sword swing animation
+            // Player Sword swing animation
             if(swordSwingT > 0) {
                 swordSwingT = Math.max(0, swordSwingT - dt * 4);
                 rogueSword.rotation.x = 0.35 - Math.sin(swordSwingT * Math.PI) * 1.4;
@@ -1399,7 +1441,6 @@
                 rogueSword.rotation.set(0.35, -0.25, 0.35);
             }
 
-            // The Walls of Flesh close in
             arenaHalfExtent = Math.max(ARENA_MIN, arenaHalfExtent - WALL_SHRINK_RATE * dt);
             rogueWalls.n.position.set(0, 0, -arenaHalfExtent);
             rogueWalls.s.position.set(0, 0,  arenaHalfExtent);
@@ -1413,7 +1454,6 @@
                 wall.userData.eye.rotation.y = Math.sin(t * 0.7) * 0.5;
             }
 
-            // WASD movement, relative to where you're looking, bounded by the closing walls
             let bound = arenaHalfExtent - WALL_THICK * 0.7;
             let speed = PLAYER_SPEED * dt;
             let forward = new THREE.Vector3(Math.sin(rogueYaw), 0, Math.cos(rogueYaw));
@@ -1425,61 +1465,91 @@
             rogueCamera.position.x = Math.max(-bound, Math.min(bound, rogueCamera.position.x));
             rogueCamera.position.z = Math.max(-bound, Math.min(bound, rogueCamera.position.z));
 
-            // CHAOS: every piece hunts the nearest other piece -- any color -- and fights on contact
-            for(let i = rogueEntities.length - 1; i >= 0; i--) {
-                let e = rogueEntities[i];
+            // Royal Guard Final Duel Check
+            if (rogueEntities.length === 1 && !playerBuffed) {
+                playerBuffed = true;
+                rogueHP += 10;
+                updateRogueHUD();
+                const flash = document.getElementById('rogue-damage-flash');
+                flash.style.background = '#d4af37';
+                flash.style.opacity = '0.5';
+                setTimeout(() => { flash.style.opacity = '0'; setTimeout(() => flash.style.background = '#8c1c1c', 300); }, 800);
+            }
 
-                // The walls consume anything that strays into them
+            for(let i = 0; i < rogueEntities.length; i++) {
+                let e = rogueEntities[i];
+                if (e.dead) continue;
+
+                // Enemy Sword animation
+                if(e.mesh.userData.swingT > 0) {
+                    e.mesh.userData.swingT -= dt * 5;
+                    e.mesh.userData.sword.rotation.x = Math.PI/3 - Math.sin(e.mesh.userData.swingT * Math.PI) * 1.5;
+                } else {
+                    e.mesh.userData.sword.rotation.x = Math.PI/3;
+                }
+
+                // Flesh wall consumption
                 if(Math.abs(e.mesh.position.x) > bound || Math.abs(e.mesh.position.z) > bound) {
+                    e.dead = true;
                     rogueScene.remove(e.mesh);
-                    rogueEntities.splice(i, 1);
                     playFleshCrunch();
                     continue;
                 }
 
                 let nearest = null, nd = Infinity;
-                for(let o of rogueEntities) {
-                    if(o === e) continue;
-                    let d = e.mesh.position.distanceTo(o.mesh.position);
-                    if(d < nd) { nd = d; nearest = o; }
-                }
 
-                if(nearest) {
-                    let dir = new THREE.Vector3().subVectors(nearest.mesh.position, e.mesh.position).setY(0);
+                if (rogueEntities.length > 1) {
+                    // Phase: Battle Royale (They fight each other)
+                    for(let o of rogueEntities) {
+                        if(o === e || o.dead) continue;
+                        let d = e.mesh.position.distanceTo(o.mesh.position);
+                        if(d < nd) { nd = d; nearest = o; }
+                    }
+
+                    if(nearest) {
+                        let dir = new THREE.Vector3().subVectors(nearest.mesh.position, e.mesh.position).setY(0);
+                        if(dir.lengthSq() > 0.0001) {
+                            dir.normalize();
+                            let wobble = Math.sin(t * 3 + i * 1.7) * 0.6;
+                            dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), wobble * dt);
+                            e.mesh.position.addScaledVector(dir, ENEMY_SPEED * dt);
+                            e.mesh.lookAt(e.mesh.position.x + dir.x, e.mesh.position.y, e.mesh.position.z + dir.z);
+                        }
+
+                        // Fight logic
+                        if(nd < SWORD_RANGE * 0.8 && e.mesh.userData.swingT <= 0) {
+                            e.mesh.userData.swingT = 1;
+                            if(Math.random() < 0.25) { // 25% chance of lethal strike
+                                nearest.dead = true;
+                                rogueScene.remove(nearest.mesh);
+                                playThud(true);
+                            }
+                        }
+                    }
+                } else {
+                    // Phase: Final Duel (The last survivor turns its blade on the Player)
+                    nd = e.mesh.position.distanceTo(rogueCamera.position);
+                    let dir = new THREE.Vector3().subVectors(rogueCamera.position, e.mesh.position).setY(0);
                     if(dir.lengthSq() > 0.0001) {
                         dir.normalize();
-                        // Chaotic wobble -- nobody walks a straight line anymore
-                        let wobble = Math.sin(t * 3 + i * 1.7) * 0.6;
-                        dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), wobble * dt);
-                        e.mesh.position.addScaledVector(dir, ENEMY_SPEED * dt);
+                        e.mesh.position.addScaledVector(dir, ENEMY_SPEED * 1.2 * dt); // Moves faster in 1v1
                         e.mesh.lookAt(e.mesh.position.x + dir.x, e.mesh.position.y, e.mesh.position.z + dir.z);
                     }
 
-                    if(nd < 0.5) {
-                        let eScore = VALS[e.type] + Math.random() * 250;
-                        let oScore = VALS[nearest.type] + Math.random() * 250;
-                        let loser = eScore >= oScore ? nearest : e;
-                        rogueScene.remove(loser.mesh);
+                    if(nd < SWORD_RANGE && e.mesh.userData.swingT <= 0) {
+                        e.mesh.userData.swingT = 1;
                         playThud(true);
-                        let li = rogueEntities.indexOf(loser);
-                        if(li > -1) rogueEntities.splice(li, 1);
+                        damagePlayer();
                     }
-                }
-
-                // Bite the King if they get too close
-                if(rogueEntities.includes(e) && e.mesh.position.distanceTo(rogueCamera.position) < BITE_RANGE) {
-                    rogueScene.remove(e.mesh);
-                    let li = rogueEntities.indexOf(e);
-                    if(li > -1) rogueEntities.splice(li, 1);
-                    playThud(true);
-                    damagePlayer();
                 }
             }
 
-            updateRogueHUD();
+            // Cleanup the dead from the array
+            rogueEntities = rogueEntities.filter(e => !e.dead);
+            
             checkRogueWin();
 
-            if(!rogueActive) return; // a win/loss this frame may have already torn everything down
+            if(!rogueActive) return; 
             rogueRenderer.render(rogueScene, rogueCamera);
             requestAnimationFrame(rogueLoop);
         }
