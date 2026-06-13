@@ -36,7 +36,7 @@
         }
         .light-square { background: radial-gradient(circle at center, #e0d0b8 0%, #b8a385 60%, #9e8766 100%); box-shadow: inset 0 0 12px rgba(0,0,0,0.3); transition: all 0.3s; }
         .dark-square { background: radial-gradient(circle at center, #3d2415 0%, #201109 60%, #140904 100%); box-shadow: inset 0 0 18px rgba(0,0,0,0.7); transition: all 0.3s; }
-        .void-square { background: #030101; box-shadow: inset 0 0 30px #000; border: 1px solid #1a0505; }
+        .void-square { background: transparent !important; box-shadow: none !important; border: none !important; transition: all 0.5s; }
         
         .blood-stain::after {
             content: ''; position: absolute; inset: 0;
@@ -56,8 +56,7 @@
         .eval-jitter { animation: jitter 0.1s infinite; }
         @keyframes jitter { 0%, 100% { transform: translateY(0); opacity: 1; } 50% { transform: translateY(1px); opacity: 0.9; } }
 
-        /* Mix-blend mode removed so the eyes remain correctly colored and visible! */
-        #flesh-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 15; opacity: 0; transition: opacity 4s ease-in; }
+        #flesh-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 15; opacity: 0; transition: opacity 4s ease-in; mix-blend-mode: normal; }
         .selected { background: radial-gradient(circle at center, rgba(200, 150, 50, 0.4), transparent) !important; box-shadow: inset 0 0 20px rgba(200, 150, 50, 0.6) !important; }
 
         .check-danger { background: radial-gradient(circle at center, #8a1010 0%, #4a0505 60%, #1a0202 100%) !important; box-shadow: inset 0 0 25px rgba(255, 0, 0, 0.5) !important; animation: pulse-danger 1s infinite; }
@@ -143,11 +142,12 @@
 
     <div id="maze-container" class="fixed inset-0 z-50 flex items-center justify-center">
         <canvas id="maze-canvas" width="640" height="480"></canvas>
-        <div class="absolute bottom-10 text-center w-full text-white tracking-[0.3em] opacity-50 animate-pulse">W A S D TO FIND THE RIFT</div>
+        <div class="absolute bottom-10 text-center w-full text-white tracking-[0.3em] opacity-50 animate-pulse">CLICK TO LOOK -- W S TO MOVE -- MOUSE TO STEER -- FIND THE RIFT</div>
     </div>
 
     <div id="rogue-container" class="fixed inset-0 z-50" style="display:none; background:#050001;">
         <canvas id="rogue-canvas" style="width:100%; height:100%; display:block;"></canvas>
+        <div id="rogue-hp-bars" class="absolute inset-0 pointer-events-none z-40"></div>
         <div id="rogue-damage-flash" class="fixed inset-0 pointer-events-none" style="background:#8c1c1c; opacity:0; transition:opacity 0.25s ease-out; z-index:51;"></div>
         <div class="absolute top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none w-full z-52">
             <h1 class="gothic-title text-3xl tracking-widest text-[#b8453a]">THE BOARD HAS RISEN</h1>
@@ -196,12 +196,25 @@
         <div class="board-frame p-6 flex items-center justify-center">
             <div class="relative w-[600px] h-[600px]">
                 <canvas id="flesh-canvas"></canvas>
-                <div id="chessboard" class="grid grid-cols-8 grid-rows-8 w-full h-full relative z-20 shadow-2xl border border-[#000]"></div>
+                <div id="chessboard" class="grid grid-cols-8 grid-rows-8 w-full h-full relative z-20 border border-[#000]"></div>
             </div>
         </div>
     </main>
 
     <script>
+        // ==========================================
+        // DYNAMIC ASSET LOADING (For Entity Sprite)
+        // ==========================================
+        let entityImg = new Image();
+        let entityExts = ['png', 'jpg', 'jpeg', 'webp'];
+        let entityExtIdx = 0;
+        function loadNextEntityExt() {
+            if(entityExtIdx >= entityExts.length) return; 
+            entityImg.src = 'entity.' + entityExts[entityExtIdx];
+        }
+        entityImg.onerror = () => { entityExtIdx++; loadNextEntityExt(); };
+        loadNextEntityExt(); // Start attempt cascade
+
         // ==========================================
         // ADMIN PANEL
         // ==========================================
@@ -219,7 +232,7 @@
             if(p === 2) fullMoves = 13;
             if(p === 3) {
                 fullMoves = 19;
-                document.getElementById('flesh-canvas').style.opacity = '0.9';
+                document.getElementById('flesh-canvas').style.opacity = '1';
                 lastConsumeTime = Date.now() - 10000;
                 animateFlesh();
             }
@@ -286,13 +299,15 @@
         // Phase 4: The Rogue Endgame
         let rogueActive = false;
         let rogueHP = 3;
-        let playerBuffed = false; // The royal guard buff for 1v1
+        let playerBuffed = false;
+        let rogueWinPending = false; // True while the 2s "acknowledge the kill" delay is running
 
         // ==========================================
         // PROCEDURAL AUDIO ENGINE
         // ==========================================
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let ambientOsc;
+        let lastStepTime = 0;
         
         function initAudio() {
             if(audioCtx.state === 'suspended') audioCtx.resume();
@@ -303,6 +318,31 @@
                 gain.gain.value = 0.05;
                 ambientOsc.connect(gain); gain.connect(audioCtx.destination); ambientOsc.start();
             }
+        }
+
+        function playFootstep() {
+            let now = audioCtx.currentTime;
+            if(now - lastStepTime < 0.35) return;
+            lastStepTime = now;
+
+            if(audioCtx.state === 'suspended') return;
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            let filter = audioCtx.createBiquadFilter();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(80, now);
+            osc.frequency.exponentialRampToValueAtTime(20, now + 0.1);
+
+            filter.type = 'lowpass';
+            filter.frequency.value = 300;
+
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+
+            osc.connect(filter).connect(gain).connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.1);
         }
 
         function playHeartbeat() {
@@ -343,26 +383,44 @@
         function playFleshCrunch() {
             if(audioCtx.state === 'suspended') return;
             const now = audioCtx.currentTime;
+
+            // Low frequency visceral thump (Gulp)
             const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'square'; osc.frequency.setValueAtTime(50, now);
-            gain.gain.setValueAtTime(1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-            
-            const bufferSize = audioCtx.sampleRate * 0.5;
+            const gainOsc = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(120, now);
+            osc.frequency.exponentialRampToValueAtTime(25, now + 0.4);
+            gainOsc.gain.setValueAtTime(1, now);
+            gainOsc.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+            osc.connect(gainOsc).connect(audioCtx.destination);
+
+            // Squelch Noise (Bandpass Filtered & Enveloped)
+            const bufferSize = audioCtx.sampleRate * 0.6;
             const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
             const data = buffer.getChannelData(0);
             for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
             const noise = audioCtx.createBufferSource();
             noise.buffer = buffer;
+
             const noiseFilter = audioCtx.createBiquadFilter();
-            noiseFilter.type = 'bandpass'; noiseFilter.frequency.value = 1000;
+            noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.setValueAtTime(400, now);
+            noiseFilter.frequency.linearRampToValueAtTime(2000, now + 0.2);
+            noiseFilter.frequency.linearRampToValueAtTime(300, now + 0.6);
+            noiseFilter.Q.value = 1.5;
+
             const noiseGain = audioCtx.createGain();
-            noiseGain.gain.setValueAtTime(0.8, now); noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-            
+            noiseGain.gain.setValueAtTime(0, now);
+            noiseGain.gain.linearRampToValueAtTime(1.2, now + 0.05);
+            noiseGain.gain.exponentialRampToValueAtTime(0.3, now + 0.2);
+            noiseGain.gain.linearRampToValueAtTime(0.8, now + 0.3);
+            noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+
             noise.connect(noiseFilter).connect(noiseGain).connect(audioCtx.destination);
-            osc.connect(gain).connect(audioCtx.destination);
-            osc.start(now); osc.stop(now + 0.5);
-            noise.start(now); noise.stop(now + 0.5);
+
+            osc.start(now); osc.stop(now + 0.6);
+            noise.start(now); noise.stop(now + 0.6);
         }
 
         function playSingleSniff(startTime) {
@@ -494,7 +552,6 @@
             return moves;
         }
 
-        // --- Minimax with Alpha-Beta Pruning ---
         function cloneBoard(b) {
             return b.map(row => row.map(cell => cell ? {...cell} : null));
         }
@@ -591,6 +648,7 @@
             kingDevoured = {w:false, b:false};
             rogueHP = 3;
             playerBuffed = false;
+            rogueWinPending = false;
 
             if(rogueActive) exitRogueMode();
 
@@ -603,7 +661,8 @@
             const maze = document.getElementById('maze-container');
             maze.style.opacity = '0'; maze.style.display = 'none';
             document.getElementById('main-content').classList.remove('glitch-fx');
-            document.getElementById('rogue-hp').innerHTML = ""; // Clear visual buff logs
+            document.getElementById('rogue-hp').innerHTML = ""; 
+            document.getElementById('rogue-hp-bars').innerHTML = ""; // Clear healthbars
 
             document.getElementById('eval-bar-container').classList.remove('eval-jitter');
             document.getElementById('eval-bar-black').style.height = '50%';
@@ -664,11 +723,9 @@
             let move = findBestMove('b', searchDepth) || moves[Math.floor(Math.random() * moves.length)];
             
             if(gamePhase >= 2 && Math.random() < 0.3) {
-                // Cheating teleport capture
                 let aiPieces = [], plPieces = [];
                 for(let r=0;r<8;r++) for(let c=0;c<8;c++) {
                     if(board[r][c]?.color==='b' && tileStatus[r][c]!==2) aiPieces.push({r,c});
-                    // Restriction: Cannot teleport to row 7 (White's back rank) or eat the Player's King!
                     if(board[r][c]?.color==='w' && tileStatus[r][c]!==2 && r !== 7 && board[r][c].type !== 'K') plPieces.push({r,c});
                 }
                 if(aiPieces.length && plPieces.length) {
@@ -715,7 +772,7 @@
         function checkPhases() {
             if(fullMoves >= 19 && gamePhase < 3) {
                 gamePhase = 3; lastConsumeTime = Date.now();
-                document.getElementById('flesh-canvas').style.opacity = '0.9';
+                document.getElementById('flesh-canvas').style.opacity = '1';
                 animateFlesh();
                 document.getElementById('eval-bar-container').classList.add('eval-jitter');
             } else if(fullMoves >= 13 && gamePhase < 2) { gamePhase = 2; document.getElementById('eval-bar-container').classList.add('eval-jitter'); } 
@@ -737,7 +794,6 @@
             const container = document.getElementById('chessboard');
             container.innerHTML = '';
             
-            // Check indicator computation for warning visualization
             let wCheck = gameActive && isWhiteTurn && isKingInCheck('w');
 
             for(let r=0; r<8; r++) {
@@ -864,17 +920,18 @@
                 }
             }
 
-            fCtx.fillStyle = '#0d0102';
+            // Brightened the flesh gradients here so they are visibly blood-red
+            fCtx.fillStyle = '#4a0508';
             drawFleshBlob(fCtx, fCanvas.width, baseY + 16, time * 0.9, 1.1);
 
             let grad = fCtx.createLinearGradient(0, 0, 0, baseY + 60);
-            grad.addColorStop(0, '#3a0a0c');
-            grad.addColorStop(0.55, '#5a1014');
-            grad.addColorStop(1, '#1a0204');
+            grad.addColorStop(0, '#a3101c');
+            grad.addColorStop(0.55, '#8c0914');
+            grad.addColorStop(1, '#420206');
             fCtx.fillStyle = grad;
             drawFleshBlob(fCtx, fCanvas.width, baseY, time, 1);
 
-            fCtx.strokeStyle = 'rgba(150, 15, 25, 0.45)';
+            fCtx.strokeStyle = 'rgba(255, 30, 45, 0.55)';
             fCtx.lineWidth = 1.5;
             for(let i=0; i<6; i++) {
                 let vx = (i+0.5) * (fCanvas.width/6);
@@ -888,17 +945,16 @@
                 fCtx.stroke();
             }
 
-            // Fixed Eyes Blend - properly rendering as white/red instead of darkening against the background
             for(let i=0; i<4; i++) {
                 let ex = fCanvas.width * (0.14 + i*0.24);
-                let ey = Math.max(18, baseY - 24 + Math.sin(time*1.2 + i*1.7)*8);
+                let ey = Math.max(8, baseY - 38 + Math.sin(time*1.2 + i*1.7)*8);
                 let blink = (Math.sin(time*0.6 + i*2.3) > 0.97) ? 0.12 : 1;
 
                 fCtx.save();
                 fCtx.translate(ex, ey);
                 fCtx.scale(1, blink);
 
-                fCtx.fillStyle = '#e8d8c8'; // Sclera slightly brighter
+                fCtx.fillStyle = '#e8d8c8'; 
                 fCtx.beginPath(); fCtx.ellipse(0, 0, 15, 11, 0, 0, Math.PI*2); fCtx.fill();
 
                 let angle = Math.atan2(ty - ey, tx - ex);
@@ -906,16 +962,16 @@
 
                 fCtx.fillStyle = '#110000';
                 fCtx.beginPath(); fCtx.arc(px, py, 5.5, 0, Math.PI*2); fCtx.fill();
-                fCtx.fillStyle = '#8a0202'; 
+                fCtx.fillStyle = '#ff0000'; 
                 fCtx.beginPath(); fCtx.arc(px, py, 2, 0, Math.PI*2); fCtx.fill();
                 fCtx.restore();
             }
 
             let nx = fCanvas.width/2 + Math.sin(time*15)*2;
-            let ny = Math.max(26, baseY - 6);
+            let ny = Math.max(14, baseY - 20);
             let flare = 1 + Math.sin(time*8)*0.18;
 
-            fCtx.fillStyle = '#2a0608';
+            fCtx.fillStyle = '#3a0204';
             fCtx.beginPath(); fCtx.ellipse(nx, ny - 8, 28, 17, 0, 0, Math.PI*2); fCtx.fill();
 
             fCtx.fillStyle = '#0a0000';
@@ -931,34 +987,85 @@
         const mCanvas = document.getElementById('maze-canvas');
         const mCtx = mCanvas.getContext('2d', {alpha: false});
         
+        // Rift moved to the far bottom right (map[8][8])
         const map = [
             [1,1,1,1,1,1,1,1,1,1],
-            [1,0,0,0,0,0,1,0,2,1],
+            [1,0,0,0,0,0,1,0,0,1],
             [1,0,1,1,0,0,1,0,0,1],
             [1,0,1,0,0,0,0,0,0,1],
             [1,0,0,0,1,1,1,0,1,1],
             [1,1,1,0,0,0,0,0,0,1],
             [1,0,0,0,1,0,1,1,0,1],
             [1,0,1,0,1,0,0,0,0,1],
-            [1,0,0,0,0,0,1,1,0,1],
+            [1,0,0,0,0,0,1,1,2,1],
             [1,1,1,1,1,1,1,1,1,1]
         ];
         
-        let pX=1.5, pY=1.5, dX=1, dY=0, plX=0, plY=0.66;
+        let pX=1.5, pY=1.5, dX=1, dY=0, plX=0, plY=1.2;
+        let mazeFallHeight = 0; // For dramatic falling effect on drop/respawn
+        let mazePitch = 0; // Vertical look offset (px), mouse-controlled
         let keys = {w:false, a:false, s:false, d:false};
-        let enemies = [{x:8.5, y:8.5}, {x:1.5, y:8.5}];
+        let enemies = [{x:7.5, y:1.5}, {x:3.5, y:7.5}];
         
         document.addEventListener('keydown', e => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; });
         document.addEventListener('keyup', e => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
 
+        // Rogue-Battle-style mouse-look: turning is driven by the mouse instead of A/D keys
+        mCanvas.addEventListener('click', () => {
+            if(mazeActive && document.pointerLockElement !== mCanvas) mCanvas.requestPointerLock();
+        });
+        document.addEventListener('mousemove', mazeMouseMove);
+
+        function mazeMouseMove(e) {
+            if(!mazeActive || document.pointerLockElement !== mCanvas) return;
+            let rs = e.movementX * 0.0025;
+            let odX=dX; dX=dX*Math.cos(rs)-dY*Math.sin(rs); dY=odX*Math.sin(rs)+dY*Math.cos(rs);
+            let oplX=plX; plX=plX*Math.cos(rs)-plY*Math.sin(rs); plY=oplX*Math.sin(rs)+plY*Math.cos(rs);
+
+            mazePitch -= e.movementY * 0.6;
+            mazePitch = Math.max(-160, Math.min(160, mazePitch));
+        }
+
+        // A successful Rift escape buys the player a reprieve from the Flesh Above:
+        // it pushes the consumed boundary back by one row and resets the consumption timer.
+        function escapeRift() {
+            if(fleshConsumedRows > 0) {
+                fleshConsumedRows--;
+                for(let c=0; c<8; c++) tileStatus[fleshConsumedRows][c] = 0;
+                renderBoard();
+            }
+            lastConsumeTime = Date.now();
+            playRiftChime();
+        }
+
+        function playRiftChime() {
+            if(audioCtx.state === 'suspended') return;
+            const now = audioCtx.currentTime;
+            [660, 880, 1320].forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now + i * 0.08);
+                gain.gain.setValueAtTime(0, now + i * 0.08);
+                gain.gain.linearRampToValueAtTime(0.25, now + i * 0.08 + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.5);
+                osc.connect(gain).connect(audioCtx.destination);
+                osc.start(now + i * 0.08);
+                osc.stop(now + i * 0.08 + 0.5);
+            });
+        }
+
         function triggerNightmareMaze() {
+            if(adminOpen) toggleAdmin();
             mazeActive = true;
             document.getElementById('main-content').classList.add('glitch-fx');
             setTimeout(() => {
                 document.getElementById('maze-container').style.display = 'flex';
                 document.getElementById('maze-container').style.opacity = '1';
-                pX=1.5; pY=1.5; dX=1; dY=0; plX=0; plY=0.66;
-                enemies = [{x:8.5, y:8.5}, {x:1.5, y:8.5}]; 
+                pX=1.5; pY=1.5; dX=1; dY=0; plX=0; plY=1.2;
+                mazePitch = 0;
+                enemies = [{x:7.5, y:1.5}, {x:3.5, y:7.5}];
+                mazeFallHeight = 60;
                 mazeLoop();
             }, 200);
         }
@@ -966,26 +1073,42 @@
         function mazeLoop() {
             if(!mazeActive || !gameActive) return;
             
-            let ms = 0.05, rs = 0.04;
-            if(keys.w) { if(map[Math.floor(pY)][Math.floor(pX+dX*ms)]===0) pX+=dX*ms; if(map[Math.floor(pY+dY*ms)][Math.floor(pX)]===0) pY+=dY*ms; }
-            if(keys.s) { if(map[Math.floor(pY)][Math.floor(pX-dX*ms)]===0) pX-=dX*ms; if(map[Math.floor(pY-dY*ms)][Math.floor(pX)]===0) pY-=dY*ms; }
-            if(keys.a) { let odX=dX; dX=dX*Math.cos(-rs)-dY*Math.sin(-rs); dY=odX*Math.sin(-rs)+dY*Math.cos(-rs); let oplX=plX; plX=plX*Math.cos(-rs)-plY*Math.sin(-rs); plY=oplX*Math.sin(-rs)+plY*Math.cos(-rs); }
-            if(keys.d) { let odX=dX; dX=dX*Math.cos(rs)-dY*Math.sin(rs); dY=odX*Math.sin(rs)+dY*Math.cos(rs); let oplX=plX; plX=plX*Math.cos(rs)-plY*Math.sin(rs); plY=oplX*Math.sin(rs)+plY*Math.cos(rs); }
+            let ms = 0.085;
+            let moved = false;
+            if(keys.w) { moved = true; if(map[Math.floor(pY)][Math.floor(pX+dX*ms)]===0) pX+=dX*ms; if(map[Math.floor(pY+dY*ms)][Math.floor(pX)]===0) pY+=dY*ms; }
+            if(keys.s) { moved = true; if(map[Math.floor(pY)][Math.floor(pX-dX*ms)]===0) pX-=dX*ms; if(map[Math.floor(pY-dY*ms)][Math.floor(pX)]===0) pY-=dY*ms; }
+            if (moved) playFootstep();
 
+            if(mazeFallHeight > 0) mazeFallHeight = Math.max(0, mazeFallHeight - 0.2);
+
+            // Succesful Rift Escapte
             if(map[Math.floor(pY)][Math.floor(pX)] === 2) {
+                escapeRift();
                 mazeActive = false;
                 document.getElementById('maze-container').style.opacity = '0';
                 setTimeout(() => document.getElementById('maze-container').style.display = 'none', 1000);
                 document.getElementById('main-content').classList.remove('glitch-fx');
+                if(document.pointerLockElement === mCanvas) document.exitPointerLock();
                 return;
             }
 
             for(let e of enemies) {
                 let edx = pX - e.x, edy = pY - e.y;
                 let dist = Math.hypot(edx, edy);
-                if(dist < 0.4) return triggerOblivion("You were caught in the void.");
+                
+                if(dist < 0.4) {
+                    // Entity caught player: Trigger the Cursed Loop Fall instead of Oblivion
+                    pX = 1.5; pY = 1.5;
+                    e.x = 7.5; e.y = 7.5;
+                    mazeFallHeight = 60;
+                    playFleshCrunch();
+                    continue; 
+                }
+                
                 if(dist < 5) {
-                    e.x += (edx/dist)*0.02; e.y += (edy/dist)*0.02; 
+                    let nx = e.x + (edx/dist)*0.02, ny = e.y + (edy/dist)*0.02;
+                    if(map[Math.floor(e.y)][Math.floor(nx)] === 0) e.x = nx;
+                    if(map[Math.floor(ny)][Math.floor(e.x)] === 0) e.y = ny;
                     if(Math.random() < 0.05 && audioCtx.state !== 'suspended') {
                         let osc = audioCtx.createOscillator();
                         let g = audioCtx.createGain();
@@ -998,8 +1121,11 @@
             }
 
             let w = mCanvas.width, h = mCanvas.height;
-            mCtx.fillStyle = '#050202'; mCtx.fillRect(0,0,w,h/2); 
-            mCtx.fillStyle = '#140502'; mCtx.fillRect(0,h/2,w,h/2); 
+            let verticalOffset = mazeFallHeight * 50 + mazePitch;
+            let horizon = Math.max(0, Math.min(h, h/2 + verticalOffset));
+
+            mCtx.fillStyle = '#050202'; mCtx.fillRect(0,0,w,horizon); 
+            mCtx.fillStyle = '#140502'; mCtx.fillRect(0,horizon,w,h-horizon); 
 
             let zBuffer = [];
 
@@ -1024,10 +1150,11 @@
                 zBuffer[x] = perpWallDist;
 
                 let lh = Math.floor(h/perpWallDist);
-                let start = -lh/2 + h/2, end = lh/2 + h/2;
+                let start = -lh/2 + h/2 + verticalOffset;
+                let end = lh/2 + h/2 + verticalOffset;
                 if(start<0) start=0; if(end>=h) end=h-1;
 
-                let color = map[my][mx]===2 ? '#ffffff' : (side===1 ? '#2b1308' : '#3d1b0b');
+                let color = map[my][mx]===2 ? '#8c1c1c' : (side===1 ? '#2b1308' : '#3d1b0b');
                 mCtx.fillStyle = color;
                 mCtx.fillRect(x, start, 1, end-start);
             }
@@ -1040,14 +1167,22 @@
                 
                 if(tfY > 0) {
                     let sh = Math.abs(Math.floor(h/tfY));
-                    let syStart = -sh/2 + h/2;
+                    let syStart = -sh/2 + h/2 + verticalOffset;
                     let sw = Math.abs(Math.floor(h/tfY));
                     let sxStart = -sw/2 + spX;
                     
-                    for(let stripe = sxStart; stripe < sxStart + sw; stripe++) {
-                        if(stripe > 0 && stripe < w && tfY < zBuffer[stripe]) {
-                            mCtx.fillStyle = '#000'; 
-                            mCtx.fillRect(stripe, syStart, 1, sh);
+                    for(let stripe = Math.max(0, sxStart); stripe < Math.min(w, sxStart + sw); stripe++) {
+                        if(tfY < zBuffer[stripe]) {
+                            // Render Dynamic entity.[ext] mapped dynamically over distance scale
+                            if (entityImg.complete && entityImg.naturalWidth > 0) {
+                                let texX = Math.floor(((stripe - sxStart) / sw) * entityImg.naturalWidth);
+                                texX = Math.max(0, Math.min(entityImg.naturalWidth - 1, texX));
+                                mCtx.drawImage(entityImg, texX, 0, 1, entityImg.naturalHeight, stripe, syStart, 1, sh);
+                            } else {
+                                // Fallback if image not fully loaded
+                                mCtx.fillStyle = '#000'; 
+                                mCtx.fillRect(stripe, syStart, 1, sh);
+                            }
                         }
                     }
                 }
@@ -1256,15 +1391,18 @@
 
         function triggerRogueEndgame() {
             if(rogueActive) return;
+            if(adminOpen) toggleAdmin();
             rogueActive = true;
             gameActive = false;
             rogueHP = 3;
             playerBuffed = false;
+            rogueWinPending = false;
             arenaHalfExtent = ARENA_START;
             swordSwingT = 0;
 
             document.getElementById('main-content').style.display = 'none';
             document.getElementById('rogue-container').style.display = 'block';
+            document.getElementById('rogue-hp-bars').innerHTML = ''; // Clear container
 
             rogueScene = new THREE.Scene();
             rogueScene.background = new THREE.Color(0x050001);
@@ -1314,16 +1452,20 @@
 
             rogueEntities = [];
             let kingPos = null;
+            
+            // Loop OVER EVERY REMAINING ALIVE PIECE physically defined in `board` matrix
             for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
                 let p = board[r][c];
-                if(!p || tileStatus[r][c] === 2) continue;
+                if(!p) continue; // Only process pieces that exist
+                
+                // Track where the player starts
                 if(p.type === 'K' && p.color === 'w') {
                     kingPos = new THREE.Vector3((c - 3.5) * CELL, 0, (r - 3.5) * CELL);
-                    continue;
+                    continue; // Do not spawn a mesh for the player's own camera origin
                 }
                 
                 let mesh = makePieceMesh(p.type, ROGUE_COLORS[p.color]);
-                let eSword = makeEnemySword(); // Attach a sword to the enemy pieces
+                let eSword = makeEnemySword(); 
                 mesh.add(eSword);
                 mesh.userData.sword = eSword;
                 mesh.userData.swingT = 0;
@@ -1331,7 +1473,23 @@
                 mesh.position.x = (c - 3.5) * CELL;
                 mesh.position.z = (r - 3.5) * CELL;
                 rogueScene.add(mesh);
-                rogueEntities.push({ mesh, color: p.color, type: p.type, dead: false });
+
+                // Setup Multi-Hit Mechanics
+                let maxHp = p.type === 'Q' ? 5 : (p.type === 'R' ? 4 : (p.type === 'N' || p.type === 'B' ? 3 : 2));
+
+                // Billboard Healthbar Creation (DOM overlaid)
+                let hpBar = document.createElement('div');
+                hpBar.className = 'absolute w-12 h-2 border border-black shadow-lg rounded transition-opacity pointer-events-none';
+                hpBar.style.backgroundColor = '#4a0505';
+                hpBar.style.zIndex = 50;
+                let hpFill = document.createElement('div');
+                hpFill.className = 'h-full transition-all duration-200';
+                hpFill.style.backgroundColor = '#4ade80';
+                hpFill.style.width = '100%';
+                hpBar.appendChild(hpFill);
+                document.getElementById('rogue-hp-bars').appendChild(hpBar);
+
+                rogueEntities.push({ mesh, color: p.color, type: p.type, dead: false, hp: maxHp, maxHp, hpBar, hpFill });
             }
 
             let start = kingPos || new THREE.Vector3(0, 0, CELL * 1.5);
@@ -1367,10 +1525,20 @@
                 let toEntity = new THREE.Vector3().subVectors(e.mesh.position, rogueCamera.position);
                 if(toEntity.length() > SWORD_RANGE) continue;
                 toEntity.normalize();
+                
+                // Multi-hit logic applied to targeted enemy piece
                 if(toEntity.dot(camDir) > SWORD_CONE) {
-                    e.dead = true;
-                    rogueScene.remove(e.mesh);
-                    playFleshCrunch();
+                    e.hp -= 1;
+                    if(e.hp <= 0) {
+                        e.dead = true;
+                        rogueScene.remove(e.mesh);
+                        e.hpBar.style.display = 'none';
+                        playFleshCrunch();
+                    } else {
+                        playThud(true); 
+                        e.hpFill.style.backgroundColor = '#fbbf24'; // Flash yellow on hit
+                        setTimeout(()=> { e.hpFill.style.backgroundColor = '#4ade80'; }, 200);
+                    }
                 }
             }
             rogueEntities = rogueEntities.filter(e => !e.dead);
@@ -1396,13 +1564,19 @@
         }
 
         function checkRogueWin() {
-            if(!rogueActive) return;
+            if(!rogueActive || rogueWinPending) return;
             if(rogueEntities.length === 0) {
-                exitRogueMode();
-                const v = document.getElementById('rogue-victory-screen');
-                v.style.pointerEvents = 'auto';
-                v.style.opacity = '1';
-                if(ambientOsc) ambientOsc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 2);
+                rogueWinPending = true;
+                // Give the player a moment to acknowledge the final kill before the win screen appears
+                setTimeout(() => {
+                    if(!rogueActive) { rogueWinPending = false; return; }
+                    exitRogueMode();
+                    rogueWinPending = false;
+                    const v = document.getElementById('rogue-victory-screen');
+                    v.style.pointerEvents = 'auto';
+                    v.style.opacity = '1';
+                    if(ambientOsc) ambientOsc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 2);
+                }, 4000);
             }
         }
 
@@ -1458,10 +1632,15 @@
             let speed = PLAYER_SPEED * dt;
             let forward = new THREE.Vector3(Math.sin(rogueYaw), 0, Math.cos(rogueYaw));
             let right = new THREE.Vector3(Math.cos(rogueYaw), 0, -Math.sin(rogueYaw));
-            if(rogueKeys.w) rogueCamera.position.addScaledVector(forward, -speed);
-            if(rogueKeys.s) rogueCamera.position.addScaledVector(forward, speed);
-            if(rogueKeys.a) rogueCamera.position.addScaledVector(right, -speed);
-            if(rogueKeys.d) rogueCamera.position.addScaledVector(right, speed);
+            
+            let moved = false;
+            if(rogueKeys.w) { moved = true; rogueCamera.position.addScaledVector(forward, -speed); }
+            if(rogueKeys.s) { moved = true; rogueCamera.position.addScaledVector(forward, speed); }
+            if(rogueKeys.a) { moved = true; rogueCamera.position.addScaledVector(right, -speed); }
+            if(rogueKeys.d) { moved = true; rogueCamera.position.addScaledVector(right, speed); }
+            
+            if (moved) playFootstep();
+
             rogueCamera.position.x = Math.max(-bound, Math.min(bound, rogueCamera.position.x));
             rogueCamera.position.z = Math.max(-bound, Math.min(bound, rogueCamera.position.z));
 
@@ -1480,6 +1659,22 @@
                 let e = rogueEntities[i];
                 if (e.dead) continue;
 
+                // Sync floating DOM healthbar to 3D mesh position
+                let screenPos = e.mesh.position.clone();
+                screenPos.y += 2.0; 
+                screenPos.project(rogueCamera);
+                
+                if(screenPos.z > 1.0) { 
+                    e.hpBar.style.display = 'none'; 
+                } else {
+                    e.hpBar.style.display = 'block';
+                    let x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
+                    let y = (-(screenPos.y * 0.5) + 0.5) * window.innerHeight;
+                    e.hpBar.style.left = (x - 24) + 'px'; 
+                    e.hpBar.style.top = y + 'px';
+                    e.hpFill.style.width = Math.max(0, (e.hp / e.maxHp) * 100) + '%';
+                }
+
                 // Enemy Sword animation
                 if(e.mesh.userData.swingT > 0) {
                     e.mesh.userData.swingT -= dt * 5;
@@ -1492,6 +1687,7 @@
                 if(Math.abs(e.mesh.position.x) > bound || Math.abs(e.mesh.position.z) > bound) {
                     e.dead = true;
                     rogueScene.remove(e.mesh);
+                    e.hpBar.style.display = 'none';
                     playFleshCrunch();
                     continue;
                 }
@@ -1519,20 +1715,26 @@
                         // Fight logic
                         if(nd < SWORD_RANGE * 0.8 && e.mesh.userData.swingT <= 0) {
                             e.mesh.userData.swingT = 1;
-                            if(Math.random() < 0.25) { // 25% chance of lethal strike
-                                nearest.dead = true;
-                                rogueScene.remove(nearest.mesh);
-                                playThud(true);
+                            if(Math.random() < 0.25) { // Hit success 
+                                nearest.hp -= 1;
+                                if(nearest.hp <= 0) {
+                                    nearest.dead = true;
+                                    rogueScene.remove(nearest.mesh);
+                                    nearest.hpBar.style.display = 'none';
+                                    playFleshCrunch();
+                                } else {
+                                    playThud(true);
+                                }
                             }
                         }
                     }
                 } else {
-                    // Phase: Final Duel (The last survivor turns its blade on the Player)
+                    // Phase: Final Duel
                     nd = e.mesh.position.distanceTo(rogueCamera.position);
                     let dir = new THREE.Vector3().subVectors(rogueCamera.position, e.mesh.position).setY(0);
                     if(dir.lengthSq() > 0.0001) {
                         dir.normalize();
-                        e.mesh.position.addScaledVector(dir, ENEMY_SPEED * 1.2 * dt); // Moves faster in 1v1
+                        e.mesh.position.addScaledVector(dir, ENEMY_SPEED * 1.2 * dt); 
                         e.mesh.lookAt(e.mesh.position.x + dir.x, e.mesh.position.y, e.mesh.position.z + dir.z);
                     }
 
@@ -1544,9 +1746,7 @@
                 }
             }
 
-            // Cleanup the dead from the array
             rogueEntities = rogueEntities.filter(e => !e.dead);
-            
             checkRogueWin();
 
             if(!rogueActive) return; 
