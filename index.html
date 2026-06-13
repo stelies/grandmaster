@@ -66,6 +66,7 @@
         #oblivion-screen { pointer-events: none; opacity: 0; transition: opacity 5s ease-in; background: radial-gradient(circle at center, #1a0505, #000); }
         #flesh-maw-screen { pointer-events: none; opacity: 0; transition: opacity 1.2s ease-in-out; background: radial-gradient(circle at center, #2a0f08, #000); }
         #rogue-victory-screen { pointer-events: none; opacity: 0; transition: opacity 2s ease-in; background: radial-gradient(circle at center, #1a1404, #000); }
+        
         .resurrect-btn-victory {
             border: 1px solid #6b5410;
             color: #d4af37;
@@ -97,7 +98,7 @@
             text-shadow: 0 0 10px rgba(255,80,60,0.8);
         }
         #maze-container { display: none; opacity: 0; transition: opacity 1s; background: #000; font-family: monospace; }
-        #maze-canvas { width: 100%; height: 100%; image-rendering: pixelated; filter: contrast(1.2) saturate(1.5) sepia(0.3); }
+        #maze-canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; filter: contrast(1.1) saturate(1.2); }
         .glitch-fx { animation: chromaticGlitch 0.2s forwards; }
         @keyframes chromaticGlitch { 
             0% { filter: drop-shadow(5px 0 0 red) drop-shadow(-5px 0 0 blue) invert(1); transform: scale(1.05); } 
@@ -132,7 +133,7 @@
     <div id="oblivion-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center text-[#610202]">
         <h1 class="gothic-title text-6xl tracking-widest mb-4">OBLIVION</h1>
         <p class="text-xl font-serif italic text-[#8c6b54]" id="oblivion-msg">The Grandmaster claims another.</p>
-        <button id="resurrect-btn-oblivion" class="resurrect-btn">Ressurect</button>
+        <button id="resurrect-btn-oblivion" class="resurrect-btn">Resurrect</button>
     </div>
 
     <div id="flesh-maw-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center text-[#c9a98a]">
@@ -141,8 +142,15 @@
     </div>
 
     <div id="maze-container" class="fixed inset-0 z-50 flex items-center justify-center">
-        <canvas id="maze-canvas" width="640" height="480"></canvas>
-        <div class="absolute bottom-10 text-center w-full text-white tracking-[0.3em] opacity-50 animate-pulse">CLICK TO LOOK -- W S TO MOVE -- MOUSE TO STEER -- FIND THE RIFT</div>
+        <canvas id="maze-canvas"></canvas>
+        <div class="absolute bottom-10 text-center w-full text-white tracking-[0.3em] opacity-80 animate-pulse pointer-events-none text-shadow font-serif">CLICK TO LOCK MOUSE — WASD TO MOVE — SEEK THE WHITE RIFT</div>
+    </div>
+
+    <!-- Ascending Victory Screen (Functional White Rift Escape) -->
+    <div id="rift-victory-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center text-[#e1eaf5]" style="display: none; opacity: 0; transition: opacity 2.5s ease-in; background: radial-gradient(circle at center, #1b2330, #05080c);">
+        <h1 class="gothic-title text-6xl tracking-[0.25em] mb-4 text-[#f0f4f8] drop-shadow-[0_0_25px_rgba(255,255,255,0.7)]">THE ASCENSION</h1>
+        <p class="text-xl font-serif italic text-[#a3b3c2] max-w-xl text-center px-8" id="rift-victory-msg">You plunged into the pure, blinding starlight of the White Rift. The writhing flesh claws impotently at your heels as the chessboard and its curses dissolve into infinite light.</p>
+        <button id="resurrect-btn-rift" class="resurrect-btn !bg-gradient-to-r !from-[#1e2a38] !to-[#2d3f54] !border-[#a3b3c2] !text-[#e1eaf5] hover:!text-[#ffffff] hover:!shadow-[0_0_20px_rgba(255,255,255,0.5)]">Resurrect</button>
     </div>
 
     <div id="rogue-container" class="fixed inset-0 z-50" style="display:none; background:#050001;">
@@ -159,13 +167,15 @@
     <div id="rogue-victory-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center text-[#d4af37]">
         <h1 class="gothic-title text-6xl tracking-widest mb-4">THE LAST KING</h1>
         <p class="text-xl font-serif italic text-[#8c6b54]">Every other piece lies still. The board is yours.</p>
-        <button id="resurrect-btn-victory" class="resurrect-btn resurrect-btn-victory">Ressurect</button>
+        <button id="resurrect-btn-victory" class="resurrect-btn resurrect-btn-victory">Resurrect</button>
     </div>
 
     <header class="w-full py-4 px-8 border-b border-[#2d1c14] bg-[#0c0705] flex items-center justify-between z-30 relative ui-panel">
-        <div class="ml-24">
-            <h1 class="gothic-title text-2xl font-bold text-[#d1c0b0] tracking-widest uppercase text-shadow-md">The Chess Club</h1>
-            <p class="text-xs text-[#8c6b54] italic font-serif">Academic Regulations Apply</p>
+        <div class="ml-24 flex items-center gap-4">
+            <div>
+                <h1 class="gothic-title text-2xl font-bold text-[#d1c0b0] tracking-widest uppercase text-shadow-md">The Chess Club</h1>
+                <p class="text-xs text-[#8c6b54] italic font-serif">Academic Regulations Apply</p>
+            </div>
         </div>
         <div class="flex items-center gap-4">
             <button id="ez-toggle" class="px-5 py-2 text-xs tracking-widest border border-[#166534] bg-[#052e16] text-[#4ade80] hover:bg-[#14532d] transition-all rounded uppercase shadow-[inset_0_0_10px_rgba(74,222,128,0.2)]">EZ Mode: ON</button>
@@ -202,6 +212,28 @@
     </main>
 
     <script>
+        
+        // Dynamic custom tab icon (Favicon) of the Grandmaster
+        function setFavicon() {
+            let link = document.querySelector("link[rel~='icon']");
+            if (!link) {
+                link = document.createElement('link');
+                link.rel = 'icon';
+                document.getElementsByTagName('head')[0].appendChild(link);
+            }
+            const svgIcon = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+                <rect width="64" height="64" rx="12" fill="#0c0705" stroke="#610202" stroke-width="2"/>
+                <path d="M16 46 L48 46 L48 38 L42 42 L32 26 L22 42 L16 38 Z" fill="#b8453a" stroke="#610202" stroke-width="1.5"/>
+                <path d="M18 46 L46 46 L46 44 L18 44 Z" fill="#d1c0b0"/>
+                <circle cx="26" cy="41" r="2.5" fill="#ff0000"/>
+                <circle cx="38" cy="41" r="2.5" fill="#ff0000"/>
+                <path d="M32 18 L32 24 M29 21 L35 21" stroke="#d1c0b0" stroke-width="2" stroke-linecap="round"/>
+            </svg>`;
+            link.href = 'data:image/svg+xml;base64,' + btoa(svgIcon.trim());
+        }
+        setFavicon();
+
         // ==========================================
         // DYNAMIC ASSET LOADING (For Entity Sprite)
         // ==========================================
@@ -241,16 +273,49 @@
             toggleAdmin(); // Auto-close
         }
 
-        // ==========================================
-        // ASSETS, CONSTANTS & STATE
-        // ==========================================
         const SVGS = {
-            'P': '<svg viewBox="0 0 45 45"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-.83.65-1.41 1.63-1.41 2.75 0 1.93 1.57 3.5 3.5 3.5h4c1.93 0 3.5-1.57 3.5-3.5 0-1.12-.58-2.1-1.41-2.75C28.06 24.84 29 23.03 29 21c0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" stroke-width="1.5"/></svg>',
-            'R': '<svg viewBox="0 0 45 45"><path d="M9 39h27v-3H9v3zm3-13v7h21v-7H12zm2.5-11h16l1.5 8h-19l1.5-8zM12 9v4h4V9h5v4h3V9h3v4h5V9h4v4h4V9H12z" stroke-width="1.5"/></svg>',
-            'N': '<svg viewBox="0 0 45 45"><path d="M22 10c-5 0-11 3-11 11 0 3 2.5 6 4.5 7.5-1 1-1.5 2.5-1.5 4 0 2 2 3.5 4 3.5h11c3 0 5-2.5 5-5.5 0-3.5-3.5-7-3.5-7l.5-4.5c.5-1 1.5-2 1.5-3.5 0-3-4-6-10-6z" stroke-width="1.5"/></svg>',
-            'B': '<svg viewBox="0 0 45 45"><path d="M9 36h27v-3H9v3zm13.5-30c-4 0-7 3-7 8 0 2.5 1.5 5.5 3.5 7.5 1.5 1.5 3.5 4.5 3.5 6.5h-4v3h10v-3h-4c0-2 2-5 3.5-6.5 2-2 3.5-5 3.5-7.5 0-5-3-8-7-8z" stroke-width="1.5"/><circle cx="22.5" cy="5" r="2"/></svg>',
-            'Q': '<svg viewBox="0 0 45 45"><path d="M9 37h27v-3H9v3zm3.5-17l-3-10 7 4 6-8 6 8 7-4-3 10H12.5zM9 22h27v3H9v-3z" stroke-width="1.5"/><circle cx="9.5" cy="8" r="1.5"/><circle cx="16.5" cy="12" r="1.5"/><circle cx="22.5" cy="4" r="1.5"/><circle cx="28.5" cy="12" r="1.5"/><circle cx="35.5" cy="8" r="1.5"/></svg>',
-            'K': '<svg viewBox="0 0 45 45"><path d="M9 38h27v-3H9v3zm13.5-31v4m-3.5-2h7m-3.5 2c-4 0-8 3-8 9.5 0 3 2.5 6.5 4.5 8.5h7c2-2 4.5-5.5 4.5-8.5 0-6.5-4-9.5-8-9.5z" stroke-width="1.5"/></svg>'
+            // High-fidelity distinct custom vectors for extreme legibility & spooky theme
+            'P': `<svg viewBox="0 0 45 45">
+                    <path d="M 12,38 L 33,38 L 31,34 L 14,34 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M 15,34 Q 22.5,32 30,34 L 28,26 Q 25,23 25,19 C 25,15.5 20,15.5 20,19 Q 20,23 17,26 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <circle cx="22.5" cy="14.5" r="4.5" stroke-width="1.8"/>
+                  </svg>`,
+            'R': `<svg viewBox="0 0 45 45">
+                    <path d="M 11,38 L 34,38 L 32,34 L 13,34 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M 14,34 L 14,19 L 31,19 L 31,34 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M 12,19 L 12,13 L 16,13 L 16,16 L 21,16 L 21,13 L 24,13 L 24,16 L 29,16 L 29,13 L 33,13 L 33,19 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M 21.5,23 L 23.5,23 M 22.5,21 L 22.5,28" stroke-width="1.8" stroke-linecap="round"/>
+                  </svg>`,
+            'N': `<svg viewBox="0 0 45 45">
+                    <path d="M 11,38 L 34,38 L 32,35 L 13,35 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M 13,35 C 13,31 15,26 18,22 C 16,21 14,19 14,16 C 14,12 17,11 19,13 C 20,11 22,8 24,8 C 25.5,8 26.5,9.5 26,11.5 C 28.5,10.5 31,12 30.5,15 C 30,17 28.5,21 25,24 C 28,26 31,31 31,35 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M 23,15 Q 18,17 19,23" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M 26,12.5 Q 23,15 24.5,19" stroke-width="1.5" stroke-linecap="round"/>
+                    <polygon points="25.5,14.5 27.5,15.5 26.5,16.5" fill="currentColor"/>
+                  </svg>`,
+            'B': `<svg viewBox="0 0 45 45">
+                    <path d="M 12,38 L 33,38 L 31,35 L 14,35 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M 17,35 C 17,31 20,29 20,26 L 25,26 C 25,29 28,31 28,35 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M 17.5,26 C 16,22 18,15 22.5,11 C 27,15 29,22 27.5,26 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <circle cx="22.5" cy="9.5" r="1.8" stroke-width="1.2"/>
+                    <path d="M 21.5,16 L 25.5,20" stroke-width="2.2" stroke-linecap="round"/>
+                  </svg>`,
+            'Q': `<svg viewBox="0 0 45 45">
+                    <path d="M 11,38 L 34,38 L 32,34 L 13,34 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M 15,34 C 17,30 18,27 18,23 L 27,23 C 27,27 28,30 30,34 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M 14,23 L 11,13 L 18,17 L 22.5,9 L 27,17 L 34,13 L 31,23 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <circle cx="11" cy="12" r="1.5" stroke-width="1"/>
+                    <circle cx="18" cy="16" r="1.5" stroke-width="1"/>
+                    <circle cx="22.5" cy="8" r="1.5" stroke-width="1"/>
+                    <circle cx="27" cy="16" r="1.5" stroke-width="1"/>
+                    <circle cx="34" cy="12" r="1.5" stroke-width="1"/>
+                  </svg>`,
+            'K': `<svg viewBox="0 0 45 45">
+                    <path d="M 10,38 L 35,38 L 33,34 L 12,34 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M 14,34 C 14,28 17,26 17,22 L 28,22 C 28,26 31,28 31,34 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M 15,22 L 13,14 L 20,17 L 22.5,13 L 25,17 L 32,14 L 30,22 Z" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M 22.5,13 L 22.5,5.5 M 19.5,8.5 L 25.5,8.5" stroke-width="2.5" stroke-linecap="round"/>
+                  </svg>`
         };
         const THEMES = { 'w': { fill: '#e6d8c3', stroke: '#1c0f0a' }, 'b': { fill: '#140a05', stroke: '#8c7058' } };
         function getPieceSVG(color, type) { return SVGS[type].replace('<svg ', `<svg fill="${THEMES[color].fill}" stroke="${THEMES[color].stroke}" `); }
@@ -300,7 +365,7 @@
         let rogueActive = false;
         let rogueHP = 3;
         let playerBuffed = false;
-        let rogueWinPending = false; // True while the 2s "acknowledge the kill" delay is running
+        let rogueWinPending = false; 
 
         // ==========================================
         // PROCEDURAL AUDIO ENGINE
@@ -384,7 +449,6 @@
             if(audioCtx.state === 'suspended') return;
             const now = audioCtx.currentTime;
 
-            // Low frequency visceral thump (Gulp)
             const osc = audioCtx.createOscillator();
             const gainOsc = audioCtx.createGain();
             osc.type = 'sine';
@@ -394,7 +458,6 @@
             gainOsc.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
             osc.connect(gainOsc).connect(audioCtx.destination);
 
-            // Squelch Noise (Bandpass Filtered & Enveloped)
             const bufferSize = audioCtx.sampleRate * 0.6;
             const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
             const data = buffer.getChannelData(0);
@@ -458,7 +521,6 @@
         // LOCAL CHESS ENGINE (Minimax + Positional Eval)
         // ==========================================
         const VALS = {'P':100, 'N':320, 'B':330, 'R':500, 'Q':900, 'K':20000};
-
         const PST = {
             'P': [[0,0,0,0,0,0,0,0],[50,50,50,50,50,50,50,50],[10,10,20,30,30,20,10,10],[5,5,10,25,25,10,5,5],[0,0,0,20,20,0,0,0],[5,-5,-10,0,0,-10,-5,5],[5,10,10,-20,-20,10,10,5],[0,0,0,0,0,0,0,0]],
             'N': [[-50,-40,-30,-30,-30,-30,-40,-50],[-40,-20,0,0,0,0,-20,-40],[-30,0,10,15,15,10,0,-30],[-30,5,15,20,20,15,5,-30],[-30,0,15,20,20,15,0,-30],[-30,5,10,15,15,10,5,-30],[-40,-20,0,5,5,0,-20,-40],[-50,-40,-30,-30,-30,-30,-40,-50]],
@@ -479,7 +541,6 @@
             return score;
         }
 
-        // Checks if a given King color is currently under attack (in check)
         function isKingInCheck(color, b = board) {
             let kR = -1, kC = -1;
             for(let r=0; r<8; r++) {
@@ -522,7 +583,7 @@
                         for(let [dr, dc] of dirs[p.type]) {
                             let tr = r + dr, tc = c + dc;
                             while(tr>=0 && tr<8 && tc>=0 && tc<8) {
-                                if(ts[tr][tc] === 2) break; // Blocked by void
+                                if(ts[tr][tc] === 2) break;
                                 let target = b[tr][tc];
                                 if(!target) moves.push({fr:r, fc:c, tr, tc, p});
                                 else { if(target.color !== color) moves.push({fr:r, fc:c, tr, tc, p}); break; }
@@ -534,7 +595,6 @@
                 }
             }
 
-            // The Castle Curse: from turn 6 onward, a Rook may snipe ANY enemy Rook across the board.
             if(fullMoves >= 6) {
                 let enemy = color === 'w' ? 'b' : 'w';
                 for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
@@ -548,23 +608,10 @@
                     }
                 }
             }
-
             return moves;
         }
 
-        function cloneBoard(b) {
-            return b.map(row => row.map(cell => cell ? {...cell} : null));
-        }
-
-        function simulateMove(b, move) {
-            let nb = cloneBoard(b);
-            let p = nb[move.fr][move.fc];
-            if(p.type === 'P' && (move.tr === 0 || move.tr === 7)) p = {color: p.color, type: 'Q'}; 
-            else if(move.cursed) p = {...p, curseUsed: true}; 
-            nb[move.tr][move.tc] = p;
-            nb[move.fr][move.fc] = null;
-            return nb;
-        }
+        function cloneBoard(b) { return b.map(row => row.map(cell => cell ? {...cell} : null)); }
 
         function minimax(b, ts, depth, isWhiteToMove, alpha, beta) {
             if(depth === 0) return evaluateBoard(b, ts);
@@ -651,6 +698,7 @@
             rogueWinPending = false;
 
             if(rogueActive) exitRogueMode();
+            if(mazeRenderer) { mazeRenderer.dispose(); mazeRenderer = null; }
 
             const oblivion = document.getElementById('oblivion-screen');
             oblivion.style.opacity = '0'; oblivion.style.pointerEvents = 'none';
@@ -658,11 +706,13 @@
             maw.style.opacity = '0';
             const victory = document.getElementById('rogue-victory-screen');
             victory.style.opacity = '0'; victory.style.pointerEvents = 'none';
+            const riftVictory = document.getElementById('rift-victory-screen');
+            riftVictory.style.opacity = '0'; riftVictory.style.pointerEvents = 'none'; riftVictory.style.display = 'none';
             const maze = document.getElementById('maze-container');
             maze.style.opacity = '0'; maze.style.display = 'none';
             document.getElementById('main-content').classList.remove('glitch-fx');
             document.getElementById('rogue-hp').innerHTML = ""; 
-            document.getElementById('rogue-hp-bars').innerHTML = ""; // Clear healthbars
+            document.getElementById('rogue-hp-bars').innerHTML = ""; 
 
             document.getElementById('eval-bar-container').classList.remove('eval-jitter');
             document.getElementById('eval-bar-black').style.height = '50%';
@@ -676,6 +726,8 @@
             document.documentElement.style.setProperty('--ez-color', 'rgba(34, 197, 94, 0.85)');
             document.documentElement.style.setProperty('--ez-glow', 'rgba(34, 197, 94, 0.5)');
 
+            if(document.pointerLockElement) document.exitPointerLock();
+
             if(ambientOsc) {
                 ambientOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
                 ambientOsc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 1);
@@ -688,6 +740,7 @@
 
         document.getElementById('resurrect-btn-oblivion').onclick = resurrectGame;
         document.getElementById('resurrect-btn-victory').onclick = resurrectGame;
+        document.getElementById('resurrect-btn-rift').onclick = resurrectGame;
 
         function checkEndgame() {
             let wK = false, bK = false;
@@ -898,7 +951,7 @@
                     if(gameActive && fleshConsumedRows >= 4) {
                         triggerRogueEndgame(); 
                         return;
-                    } else if(gameActive && !devouredKing && Math.random() < 0.15) {
+                    } else if(gameActive && !devouredKing && Math.random() < 0.25) {
                         triggerNightmareMaze();
                     }
                 }
@@ -920,7 +973,6 @@
                 }
             }
 
-            // Brightened the flesh gradients here so they are visibly blood-red
             fCtx.fillStyle = '#4a0508';
             drawFleshBlob(fCtx, fCanvas.width, baseY + 16, time * 0.9, 1.1);
 
@@ -982,59 +1034,73 @@
         }
 
         // ==========================================
-        // 3D NIGHTMARE MAZE (Raycaster)
+        // 3D NIGHTMARE MAZE (THREE.js Full Transition)
         // ==========================================
-        const mCanvas = document.getElementById('maze-canvas');
-        const mCtx = mCanvas.getContext('2d', {alpha: false});
         
-        // Rift moved to the far bottom right (map[8][8])
-        const map = [
-            [1,1,1,1,1,1,1,1,1,1],
-            [1,0,0,0,0,0,1,0,0,1],
-            [1,0,1,1,0,0,1,0,0,1],
-            [1,0,1,0,0,0,0,0,0,1],
-            [1,0,0,0,1,1,1,0,1,1],
-            [1,1,1,0,0,0,0,0,0,1],
-            [1,0,0,0,1,0,1,1,0,1],
-            [1,0,1,0,1,0,0,0,0,1],
-            [1,0,0,0,0,0,1,1,2,1],
-            [1,1,1,1,1,1,1,1,1,1]
+        let mazeRenderer, mazeScene, mazeCamera, mazeClock;
+        let mazeYaw = Math.PI / 4, mazePitch = 0;
+        let mazeEntityMesh;
+        let mazeStartTime = 0;
+        
+        const mazeMapArray = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+            [1,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1],
+            [1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0,1,0,1],
+            [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,1,0,1],
+            [1,1,1,1,1,1,1,0,1,0,1,1,1,1,0,1,0,1,0,1],
+            [1,0,0,0,0,0,1,0,1,0,1,0,0,0,0,1,0,1,0,1],
+            [1,0,1,1,1,0,1,0,1,0,1,0,1,1,1,1,0,1,0,1],
+            [1,0,1,0,0,0,1,0,1,0,1,0,1,0,0,0,0,1,0,1],
+            [1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,1,1,1,0,1],
+            [1,0,1,0,0,0,0,0,1,0,1,0,1,0,0,0,0,0,0,1],
+            [1,0,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1],
+            [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+            [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],
+            [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+            [1,0,0,0,1,1,1,1,1,1,1,1,1,1,0,1,1,1,2,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
         ];
-        
-        let pX=1.5, pY=1.5, dX=1, dY=0, plX=0, plY=1.2;
-        let mazeFallHeight = 0; // For dramatic falling effect on drop/respawn
-        let mazePitch = 0; // Vertical look offset (px), mouse-controlled
+
         let keys = {w:false, a:false, s:false, d:false};
-        let enemies = [{x:7.5, y:1.5}, {x:3.5, y:7.5}];
-        
         document.addEventListener('keydown', e => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; });
         document.addEventListener('keyup', e => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
 
-        // Rogue-Battle-style mouse-look: turning is driven by the mouse instead of A/D keys
-        mCanvas.addEventListener('click', () => {
-            if(mazeActive && document.pointerLockElement !== mCanvas) mCanvas.requestPointerLock();
+        document.getElementById('maze-canvas').addEventListener('click', () => {
+            if(mazeActive && document.pointerLockElement !== document.getElementById('maze-canvas')) {
+                document.getElementById('maze-canvas').requestPointerLock();
+            }
         });
         document.addEventListener('mousemove', mazeMouseMove);
 
         function mazeMouseMove(e) {
-            if(!mazeActive || document.pointerLockElement !== mCanvas) return;
-            let rs = e.movementX * 0.0025;
-            let odX=dX; dX=dX*Math.cos(rs)-dY*Math.sin(rs); dY=odX*Math.sin(rs)+dY*Math.cos(rs);
-            let oplX=plX; plX=plX*Math.cos(rs)-plY*Math.sin(rs); plY=oplX*Math.sin(rs)+plY*Math.cos(rs);
-
-            mazePitch -= e.movementY * 0.6;
-            mazePitch = Math.max(-160, Math.min(160, mazePitch));
+            if(!mazeActive || document.pointerLockElement !== document.getElementById('maze-canvas')) return;
+            mazeYaw -= e.movementX * 0.0025;
+            mazePitch -= e.movementY * 0.0025;
+            mazePitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, mazePitch));
         }
 
-        // A successful Rift escape buys the player a reprieve from the Flesh Above:
-        // it pushes the consumed boundary back by one row and resets the consumption timer.
         function escapeRift() {
-            if(fleshConsumedRows > 0) {
-                fleshConsumedRows--;
-                for(let c=0; c<8; c++) tileStatus[fleshConsumedRows][c] = 0;
-                renderBoard();
-            }
-            lastConsumeTime = Date.now();
+            mazeActive = false;
+            document.getElementById('maze-container').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('maze-container').style.display = 'none';
+                if(mazeRenderer) mazeRenderer.dispose();
+            }, 1000);
+            document.getElementById('main-content').classList.remove('glitch-fx');
+            if(document.pointerLockElement === document.getElementById('maze-canvas')) document.exitPointerLock();
+
+            // Trigger beautiful White Rift Ascension Win Screen!
+            setTimeout(() => {
+                const rs = document.getElementById('rift-victory-screen');
+                rs.style.display = 'flex';
+                rs.style.pointerEvents = 'auto';
+                rs.style.opacity = '1';
+            }, 1200);
+
             playRiftChime();
         }
 
@@ -1058,57 +1124,305 @@
         function triggerNightmareMaze() {
             if(adminOpen) toggleAdmin();
             mazeActive = true;
+            mazeStartTime = Date.now();
             document.getElementById('main-content').classList.add('glitch-fx');
             setTimeout(() => {
                 document.getElementById('maze-container').style.display = 'flex';
                 document.getElementById('maze-container').style.opacity = '1';
-                pX=1.5; pY=1.5; dX=1; dY=0; plX=0; plY=1.2;
-                mazePitch = 0;
-                enemies = [{x:7.5, y:1.5}, {x:3.5, y:7.5}];
-                mazeFallHeight = 60;
-                mazeLoop();
+                initThreeMaze();
             }, 200);
         }
 
-        function mazeLoop() {
-            if(!mazeActive || !gameActive) return;
+        function getEntityTexture() {
+            let canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            let ctx = canvas.getContext('2d');
             
-            let ms = 0.085;
-            let moved = false;
-            if(keys.w) { moved = true; if(map[Math.floor(pY)][Math.floor(pX+dX*ms)]===0) pX+=dX*ms; if(map[Math.floor(pY+dY*ms)][Math.floor(pX)]===0) pY+=dY*ms; }
-            if(keys.s) { moved = true; if(map[Math.floor(pY)][Math.floor(pX-dX*ms)]===0) pX-=dX*ms; if(map[Math.floor(pY-dY*ms)][Math.floor(pX)]===0) pY-=dY*ms; }
-            if (moved) playFootstep();
+            // Solid dark procedural fallback if entity.png fails
+            if (entityImg.complete && entityImg.naturalWidth > 0) {
+                ctx.drawImage(entityImg, 0, 0, 128, 128);
+            } else {
+                let grad = ctx.createRadialGradient(64, 64, 10, 64, 64, 64);
+                grad.addColorStop(0, '#300404');
+                grad.addColorStop(0.6, '#0f0202');
+                grad.addColorStop(1, '#000000');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, 128, 128);
+                
+                // Terrifying procedural skull shadow
+                ctx.fillStyle = '#1c0a0a';
+                ctx.beginPath();
+                ctx.arc(64, 55, 30, 0, Math.PI, true);
+                ctx.lineTo(46, 85);
+                ctx.lineTo(82, 85);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.fillStyle = '#0a0303';
+                ctx.fillRect(52, 85, 4, 10);
+                ctx.fillRect(62, 85, 4, 10);
+                ctx.fillRect(72, 85, 4, 10);
+                
+                // Glowing eyes sockets
+                ctx.fillStyle = '#e50914';
+                ctx.shadowColor = '#ff3333';
+                ctx.shadowBlur = 12;
+                ctx.beginPath();
+                ctx.arc(48, 55, 6, 0, Math.PI*2);
+                ctx.arc(80, 55, 6, 0, Math.PI*2);
+                ctx.fill();
+                ctx.shadowBlur = 0; 
+                
+                // White pinprick pupil fallback
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(48, 55, 2, 0, Math.PI*2);
+                ctx.arc(80, 55, 2, 0, Math.PI*2);
+                ctx.fill();
 
-            if(mazeFallHeight > 0) mazeFallHeight = Math.max(0, mazeFallHeight - 0.2);
+                // Static lines for texture depth
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.12)';
+                for(let i=0; i<8; i++) {
+                    let y = Math.random() * 128;
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(128, y);
+                    ctx.stroke();
+                }
+            }
+            return new THREE.CanvasTexture(canvas);
+        }
 
-            // Succesful Rift Escapte
-            if(map[Math.floor(pY)][Math.floor(pX)] === 2) {
+        // BFS pathfinder on 20x20 maze array to prevent entity from getting stuck in corners
+        function findMazePath(startGridX, startGridZ, targetGridX, targetGridZ) {
+            if (startGridX === targetGridX && startGridZ === targetGridZ) return [];
+            
+            let queue = [[startGridX, startGridZ]];
+            let parentMap = {};
+            let visited = {};
+            visited[`${startGridX},${startGridZ}`] = true;
+            
+            let found = false;
+            const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+            
+            while(queue.length > 0) {
+                let [cx, cz] = queue.shift();
+                if (cx === targetGridX && cz === targetGridZ) {
+                    found = true;
+                    break;
+                }
+                
+                for (let [dx, dz] of dirs) {
+                    let nx = cx + dx;
+                    let nz = cz + dz;
+                    if (nx >= 0 && nx < 20 && nz >= 0 && nz < 20) {
+                        if (mazeMapArray[nz][nx] !== 1 && !visited[`${nx},${nz}`]) {
+                            visited[`${nx},${nz}`] = true;
+                            parentMap[`${nx},${nz}`] = [cx, cz];
+                            queue.push([nx, nz]);
+                        }
+                    }
+                }
+            }
+            
+            if (!found) return [];
+            
+            let path = [];
+            let curr = [targetGridX, targetGridZ];
+            while(curr) {
+                path.push(curr);
+                let parent = parentMap[`${curr[0]},${curr[1]}`];
+                if (!parent) break;
+                curr = parent;
+            }
+            path.reverse();
+            return path;
+        }
+
+        function initThreeMaze() {
+            const canvas = document.getElementById('maze-canvas');
+            
+            if(!mazeRenderer) {
+                mazeRenderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+            }
+            mazeRenderer.setPixelRatio(window.devicePixelRatio > 1 ? 0.75 : 1.0);
+            mazeRenderer.setSize(window.innerWidth, window.innerHeight);
+
+            mazeScene = new THREE.Scene();
+            mazeScene.background = new THREE.Color(0x050202);
+            mazeScene.fog = null; // REMOVED FOG AT USER'S REQUEST FOR MAXIMUM CLARITY
+
+            mazeCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+            mazeCamera.position.set(1.5, 0.5, 1.5);
+            mazeYaw = Math.PI / 4;
+            mazePitch = 0;
+
+            // Elevated lighting details for gorgeous spooky aesthetic
+            const playerLight = new THREE.PointLight(0xffe0c0, 1.5, 18);
+            mazeCamera.add(playerLight);
+            mazeScene.add(mazeCamera);
+
+            // Light up ambient space
+            const ambient = new THREE.AmbientLight(0x22110c, 0.45);
+            mazeScene.add(ambient);
+
+            const wallGeo = new THREE.BoxGeometry(1, 2, 1);
+            const wallMat = new THREE.MeshStandardMaterial({color: 0x421509, roughness: 0.95, metalness: 0.05});
+            
+            const floorGeo = new THREE.PlaneGeometry(20, 20);
+            const floor = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({color: 0x140704, roughness: 1.0}));
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.set(10, 0, 10);
+            mazeScene.add(floor);
+
+            const ceil = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({color: 0x050100, roughness: 1.0}));
+            ceil.rotation.x = Math.PI / 2;
+            ceil.position.set(10, 2, 10);
+            mazeScene.add(ceil);
+
+            const wallInstanced = new THREE.InstancedMesh(wallGeo, wallMat, 400);
+            let wallCount = 0;
+            const dummy = new THREE.Object3D();
+            
+            // Pure White luminous pointlight representing ascension rift
+            let riftLight = new THREE.PointLight(0xffffff, 3.5, 8);
+
+            for(let z=0; z<20; z++) {
+                for(let x=0; x<20; x++) {
+                    if(mazeMapArray[z][x] === 1) {
+                        dummy.position.set(x + 0.5, 1, z + 0.5);
+                        dummy.updateMatrix();
+                        wallInstanced.setMatrixAt(wallCount++, dummy.matrix);
+                    } else if(mazeMapArray[z][x] === 2) {
+                        // Radiant white starlight crystal structure 
+                        let riftMat = new THREE.MeshBasicMaterial({color: 0xffffff, wireframe: true});
+                        let riftGeo = new THREE.OctahedronGeometry(0.4, 2);
+                        let rift = new THREE.Mesh(riftGeo, riftMat);
+                        rift.scale.set(1, 2.2, 1);
+                        rift.position.set(x + 0.5, 1.0, z + 0.5);
+                        rift.userData.isRift = true;
+                        mazeScene.add(rift);
+
+                        // Floating cosmic ring orbiting rift
+                        let ringMat = new THREE.MeshBasicMaterial({color: 0xcccccc, wireframe: true});
+                        let ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.04, 8, 24), ringMat);
+                        ring.position.set(x + 0.5, 1.0, z + 0.5);
+                        ring.rotation.x = Math.PI / 2;
+                        ring.userData.isRiftRing = true;
+                        mazeScene.add(ring);
+
+                        riftLight.position.set(x + 0.5, 1.0, z + 0.5);
+                        mazeScene.add(riftLight);
+                    }
+                }
+            }
+            wallInstanced.count = wallCount;
+            mazeScene.add(wallInstanced);
+
+            let entTex = getEntityTexture();
+            mazeEntityMesh = new THREE.Sprite(new THREE.SpriteMaterial({ map: entTex, color: 0xffffff }));
+            mazeEntityMesh.scale.set(1.4, 1.4, 1.4);
+            mazeEntityMesh.position.set(18.5, 0.7, 1.5); 
+            mazeScene.add(mazeEntityMesh);
+
+            mazeClock = new THREE.Clock();
+            requestAnimationFrame(mazeThreeLoop);
+        }
+
+        function mazeThreeLoop() {
+            if(!mazeActive || !gameActive) return;
+
+            let dt = Math.min(mazeClock.getDelta(), 0.1);
+            let ms = 3.2 * dt; 
+
+            mazeCamera.rotation.order = 'YXZ';
+            mazeCamera.rotation.y = mazeYaw;
+            mazeCamera.rotation.x = mazePitch;
+
+            let dir = new THREE.Vector3();
+            mazeCamera.getWorldDirection(dir);
+            let forward = new THREE.Vector3(dir.x, 0, dir.z).normalize();
+            let right = new THREE.Vector3(-forward.z, 0, forward.x);
+
+            let dx = 0, dz = 0;
+            if(keys.w) { dx += forward.x; dz += forward.z; }
+            if(keys.s) { dx -= forward.x; dz -= forward.z; }
+            if(keys.a) { dx -= right.x; dz -= right.z; }
+            if(keys.d) { dx += right.x; dz += right.z; }
+
+            if(dx !== 0 || dz !== 0) {
+                let len = Math.hypot(dx, dz);
+                dx = (dx / len) * ms;
+                dz = (dz / len) * ms;
+                playFootstep();
+            }
+
+            let px = mazeCamera.position.x;
+            let pz = mazeCamera.position.z;
+
+            // Simple Collision against walls (1)
+            let checkX = Math.floor(px + dx + Math.sign(dx)*0.2);
+            let checkZ = Math.floor(pz + dz + Math.sign(dz)*0.2);
+            
+            if(checkX >= 0 && checkX < 20 && mazeMapArray[Math.floor(pz)][checkX] !== 1) px += dx;
+            if(checkZ >= 0 && checkZ < 20 && mazeMapArray[checkZ][Math.floor(px)] !== 1) pz += dz;
+
+            mazeCamera.position.x = px;
+            mazeCamera.position.z = pz;
+
+            // Rift Touch Condition
+            let gridX = Math.floor(px);
+            let gridZ = Math.floor(pz);
+            if(gridZ >= 0 && gridZ < 20 && mazeMapArray[gridZ][gridX] === 2) {
                 escapeRift();
-                mazeActive = false;
-                document.getElementById('maze-container').style.opacity = '0';
-                setTimeout(() => document.getElementById('maze-container').style.display = 'none', 1000);
-                document.getElementById('main-content').classList.remove('glitch-fx');
-                if(document.pointerLockElement === mCanvas) document.exitPointerLock();
                 return;
             }
 
-            for(let e of enemies) {
-                let edx = pX - e.x, edy = pY - e.y;
-                let dist = Math.hypot(edx, edy);
-                
-                if(dist < 0.4) {
-                    // Entity caught player: Trigger the Cursed Loop Fall instead of Oblivion
-                    pX = 1.5; pY = 1.5;
-                    e.x = 7.5; e.y = 7.5;
-                    mazeFallHeight = 60;
-                    playFleshCrunch();
-                    continue; 
+            // Entity pathfinding navigation & chasing logic
+            let timeSinceStart = Date.now() - mazeStartTime;
+            if(timeSinceStart > 5000) { 
+                let ex = mazeEntityMesh.position.x;
+                let ez = mazeEntityMesh.position.z;
+
+                let egx = Math.floor(ex);
+                let egz = Math.floor(ez);
+                let pgx = Math.floor(px);
+                let pgz = Math.floor(pz);
+
+                // Run BFS grid pathfinder
+                let path = findMazePath(egx, egz, pgx, pgz);
+                let targetX = px;
+                let targetZ = pz;
+
+                if (path && path.length > 1) {
+                    // Pull coordinates of the next step on the route map
+                    targetX = path[1][0] + 0.5;
+                    targetZ = path[1][1] + 0.5;
                 }
-                
-                if(dist < 5) {
-                    let nx = e.x + (edx/dist)*0.02, ny = e.y + (edy/dist)*0.02;
-                    if(map[Math.floor(e.y)][Math.floor(nx)] === 0) e.x = nx;
-                    if(map[Math.floor(ny)][Math.floor(e.x)] === 0) e.y = ny;
+
+                let edx = targetX - ex;
+                let edz = targetZ - ez;
+                let dist = Math.hypot(edx, edz);
+                let playerDist = Math.hypot(px - ex, pz - ez);
+
+                if(playerDist < 0.65) {
+                    // Jump scare / Caught Reset sequence
+                    mazeCamera.position.set(1.5, 0.5, 1.5);
+                    mazeEntityMesh.position.set(18.5, 0.7, 1.5);
+                    mazeStartTime = Date.now(); // Renew grace period upon failure
+                    playFleshCrunch();
+                } else {
+                    // Walk seamlessly along calculated grid path
+                    if (dist > 0.02) {
+                        let step = 2.4 * dt;
+                        if (step > dist) step = dist;
+                        ex += (edx / dist) * step;
+                        ez += (edz / dist) * step;
+                    }
+
+                    mazeEntityMesh.position.x = ex;
+                    mazeEntityMesh.position.z = ez;
+
                     if(Math.random() < 0.05 && audioCtx.state !== 'suspended') {
                         let osc = audioCtx.createOscillator();
                         let g = audioCtx.createGain();
@@ -1118,77 +1432,29 @@
                         osc.start(); osc.stop(audioCtx.currentTime+0.1);
                     }
                 }
-            }
-
-            let w = mCanvas.width, h = mCanvas.height;
-            let verticalOffset = mazeFallHeight * 50 + mazePitch;
-            let horizon = Math.max(0, Math.min(h, h/2 + verticalOffset));
-
-            mCtx.fillStyle = '#050202'; mCtx.fillRect(0,0,w,horizon); 
-            mCtx.fillStyle = '#140502'; mCtx.fillRect(0,horizon,w,h-horizon); 
-
-            let zBuffer = [];
-
-            for(let x=0; x<w; x++) {
-                let cx = 2*x/w - 1;
-                let rDX = dX + plX*cx, rDY = dY + plY*cx;
-                let mx = Math.floor(pX), my = Math.floor(pY);
-                let sdX, sdY;
-                let ddX = Math.abs(1/rDX), ddY = Math.abs(1/rDY);
-                let perpWallDist, stepX, stepY;
-                let hit=0, side=0;
-
-                if(rDX<0){ stepX=-1; sdX=(pX-mx)*ddX; } else { stepX=1; sdX=(mx+1-pX)*ddX; }
-                if(rDY<0){ stepY=-1; sdY=(pY-my)*ddY; } else { stepY=1; sdY=(my+1-pY)*ddY; }
-
-                while(hit===0) {
-                    if(sdX<sdY){ sdX+=ddX; mx+=stepX; side=0; } else { sdY+=ddY; my+=stepY; side=1; }
-                    if(map[my][mx]>0) hit=1;
-                }
-
-                if(side===0) perpWallDist=(mx-pX+(1-stepX)/2)/rDX; else perpWallDist=(my-pY+(1-stepY)/2)/rDY;
-                zBuffer[x] = perpWallDist;
-
-                let lh = Math.floor(h/perpWallDist);
-                let start = -lh/2 + h/2 + verticalOffset;
-                let end = lh/2 + h/2 + verticalOffset;
-                if(start<0) start=0; if(end>=h) end=h-1;
-
-                let color = map[my][mx]===2 ? '#8c1c1c' : (side===1 ? '#2b1308' : '#3d1b0b');
-                mCtx.fillStyle = color;
-                mCtx.fillRect(x, start, 1, end-start);
-            }
-
-            for(let e of enemies) {
-                let sx = e.x - pX, sy = e.y - pY;
-                let invDet = 1.0 / (plX * dY - dX * plY);
-                let tfX = invDet * (dY * sx - dX * sy), tfY = invDet * (-plY * sx + plX * sy);
-                let spX = Math.floor((w/2)*(1 + tfX/tfY));
                 
-                if(tfY > 0) {
-                    let sh = Math.abs(Math.floor(h/tfY));
-                    let syStart = -sh/2 + h/2 + verticalOffset;
-                    let sw = Math.abs(Math.floor(h/tfY));
-                    let sxStart = -sw/2 + spX;
-                    
-                    for(let stripe = Math.max(0, sxStart); stripe < Math.min(w, sxStart + sw); stripe++) {
-                        if(tfY < zBuffer[stripe]) {
-                            // Render Dynamic entity.[ext] mapped dynamically over distance scale
-                            if (entityImg.complete && entityImg.naturalWidth > 0) {
-                                let texX = Math.floor(((stripe - sxStart) / sw) * entityImg.naturalWidth);
-                                texX = Math.max(0, Math.min(entityImg.naturalWidth - 1, texX));
-                                mCtx.drawImage(entityImg, texX, 0, 1, entityImg.naturalHeight, stripe, syStart, 1, sh);
-                            } else {
-                                // Fallback if image not fully loaded
-                                mCtx.fillStyle = '#000'; 
-                                mCtx.fillRect(stripe, syStart, 1, sh);
-                            }
-                        }
-                    }
-                }
+                // Sinister hover bobbing 
+                mazeEntityMesh.position.y = 0.7 + Math.sin(Date.now()*0.005)*0.15;
+            } else {
+                // Tremble in position during opening grace timer
+                mazeEntityMesh.position.y = 0.7 + (Math.random() - 0.5)*0.03;
             }
 
-            requestAnimationFrame(mazeLoop);
+            // Beautiful rotations of Rift assets
+            mazeScene.children.forEach(c => {
+                if(c.userData.isRift) {
+                    c.rotation.y += dt * 1.5;
+                    c.position.y = 1.0 + Math.sin(Date.now()*0.003)*0.1;
+                }
+                if(c.userData.isRiftRing) {
+                    c.rotation.z -= dt * 1.0;
+                    c.rotation.x += dt * 0.5;
+                    c.position.y = 1.0 + Math.sin(Date.now()*0.003)*0.1;
+                }
+            });
+
+            mazeRenderer.render(mazeScene, mazeCamera);
+            requestAnimationFrame(mazeThreeLoop);
         }
 
         // ==========================================
@@ -1292,7 +1558,6 @@
             return group;
         }
 
-        // Generate tiny swords for the enemy pieces
         function makeEnemySword() {
             let group = new THREE.Group();
             let bladeMat = new THREE.MeshStandardMaterial({color:0x888888, metalness:0.5, roughness:0.5});
@@ -1402,7 +1667,7 @@
 
             document.getElementById('main-content').style.display = 'none';
             document.getElementById('rogue-container').style.display = 'block';
-            document.getElementById('rogue-hp-bars').innerHTML = ''; // Clear container
+            document.getElementById('rogue-hp-bars').innerHTML = '';
 
             rogueScene = new THREE.Scene();
             rogueScene.background = new THREE.Color(0x050001);
@@ -1453,15 +1718,13 @@
             rogueEntities = [];
             let kingPos = null;
             
-            // Loop OVER EVERY REMAINING ALIVE PIECE physically defined in `board` matrix
             for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
                 let p = board[r][c];
-                if(!p) continue; // Only process pieces that exist
+                if(!p) continue; 
                 
-                // Track where the player starts
                 if(p.type === 'K' && p.color === 'w') {
                     kingPos = new THREE.Vector3((c - 3.5) * CELL, 0, (r - 3.5) * CELL);
-                    continue; // Do not spawn a mesh for the player's own camera origin
+                    continue; 
                 }
                 
                 let mesh = makePieceMesh(p.type, ROGUE_COLORS[p.color]);
@@ -1474,10 +1737,8 @@
                 mesh.position.z = (r - 3.5) * CELL;
                 rogueScene.add(mesh);
 
-                // Setup Multi-Hit Mechanics
                 let maxHp = p.type === 'Q' ? 5 : (p.type === 'R' ? 4 : (p.type === 'N' || p.type === 'B' ? 3 : 2));
 
-                // Billboard Healthbar Creation (DOM overlaid)
                 let hpBar = document.createElement('div');
                 hpBar.className = 'absolute w-12 h-2 border border-black shadow-lg rounded transition-opacity pointer-events-none';
                 hpBar.style.backgroundColor = '#4a0505';
@@ -1508,13 +1769,6 @@
             rogueLoop();
         }
 
-        function rogueMouseMove(e) {
-            if(!rogueActive || document.pointerLockElement !== document.getElementById('rogue-canvas')) return;
-            rogueYaw -= e.movementX * 0.0025;
-            roguePitch -= e.movementY * 0.0025;
-            roguePitch = Math.max(-1.2, Math.min(1.2, roguePitch));
-        }
-
         function rogueAttack() {
             if(!rogueActive || swordSwingT > 0) return;
             swordSwingT = 1;
@@ -1526,7 +1780,6 @@
                 if(toEntity.length() > SWORD_RANGE) continue;
                 toEntity.normalize();
                 
-                // Multi-hit logic applied to targeted enemy piece
                 if(toEntity.dot(camDir) > SWORD_CONE) {
                     e.hp -= 1;
                     if(e.hp <= 0) {
@@ -1536,7 +1789,7 @@
                         playFleshCrunch();
                     } else {
                         playThud(true); 
-                        e.hpFill.style.backgroundColor = '#fbbf24'; // Flash yellow on hit
+                        e.hpFill.style.backgroundColor = '#fbbf24'; 
                         setTimeout(()=> { e.hpFill.style.backgroundColor = '#4ade80'; }, 200);
                     }
                 }
@@ -1567,7 +1820,6 @@
             if(!rogueActive || rogueWinPending) return;
             if(rogueEntities.length === 0) {
                 rogueWinPending = true;
-                // Give the player a moment to acknowledge the final kill before the win screen appears
                 setTimeout(() => {
                     if(!rogueActive) { rogueWinPending = false; return; }
                     exitRogueMode();
@@ -1606,7 +1858,6 @@
             rogueCamera.rotation.y = rogueYaw;
             rogueCamera.rotation.x = roguePitch;
 
-            // Player Sword swing animation
             if(swordSwingT > 0) {
                 swordSwingT = Math.max(0, swordSwingT - dt * 4);
                 rogueSword.rotation.x = 0.35 - Math.sin(swordSwingT * Math.PI) * 1.4;
@@ -1644,7 +1895,6 @@
             rogueCamera.position.x = Math.max(-bound, Math.min(bound, rogueCamera.position.x));
             rogueCamera.position.z = Math.max(-bound, Math.min(bound, rogueCamera.position.z));
 
-            // Royal Guard Final Duel Check
             if (rogueEntities.length === 1 && !playerBuffed) {
                 playerBuffed = true;
                 rogueHP += 10;
@@ -1659,7 +1909,6 @@
                 let e = rogueEntities[i];
                 if (e.dead) continue;
 
-                // Sync floating DOM healthbar to 3D mesh position
                 let screenPos = e.mesh.position.clone();
                 screenPos.y += 2.0; 
                 screenPos.project(rogueCamera);
@@ -1675,7 +1924,6 @@
                     e.hpFill.style.width = Math.max(0, (e.hp / e.maxHp) * 100) + '%';
                 }
 
-                // Enemy Sword animation
                 if(e.mesh.userData.swingT > 0) {
                     e.mesh.userData.swingT -= dt * 5;
                     e.mesh.userData.sword.rotation.x = Math.PI/3 - Math.sin(e.mesh.userData.swingT * Math.PI) * 1.5;
@@ -1683,7 +1931,6 @@
                     e.mesh.userData.sword.rotation.x = Math.PI/3;
                 }
 
-                // Flesh wall consumption
                 if(Math.abs(e.mesh.position.x) > bound || Math.abs(e.mesh.position.z) > bound) {
                     e.dead = true;
                     rogueScene.remove(e.mesh);
@@ -1695,7 +1942,6 @@
                 let nearest = null, nd = Infinity;
 
                 if (rogueEntities.length > 1) {
-                    // Phase: Battle Royale (They fight each other)
                     for(let o of rogueEntities) {
                         if(o === e || o.dead) continue;
                         let d = e.mesh.position.distanceTo(o.mesh.position);
@@ -1712,10 +1958,9 @@
                             e.mesh.lookAt(e.mesh.position.x + dir.x, e.mesh.position.y, e.mesh.position.z + dir.z);
                         }
 
-                        // Fight logic
                         if(nd < SWORD_RANGE * 0.8 && e.mesh.userData.swingT <= 0) {
                             e.mesh.userData.swingT = 1;
-                            if(Math.random() < 0.25) { // Hit success 
+                            if(Math.random() < 0.25) { 
                                 nearest.hp -= 1;
                                 if(nearest.hp <= 0) {
                                     nearest.dead = true;
@@ -1729,7 +1974,6 @@
                         }
                     }
                 } else {
-                    // Phase: Final Duel
                     nd = e.mesh.position.distanceTo(rogueCamera.position);
                     let dir = new THREE.Vector3().subVectors(rogueCamera.position, e.mesh.position).setY(0);
                     if(dir.lengthSq() > 0.0001) {
@@ -1755,13 +1999,19 @@
         }
 
         window.addEventListener('resize', () => {
-            if(!rogueActive || !rogueRenderer) return;
-            rogueRenderer.setSize(window.innerWidth, window.innerHeight);
-            rogueCamera.aspect = window.innerWidth / window.innerHeight;
-            rogueCamera.updateProjectionMatrix();
+            if(rogueActive && rogueRenderer) {
+                rogueRenderer.setSize(window.innerWidth, window.innerHeight);
+                rogueCamera.aspect = window.innerWidth / window.innerHeight;
+                rogueCamera.updateProjectionMatrix();
+            }
+            if(mazeActive && mazeRenderer) {
+                mazeRenderer.setSize(window.innerWidth, window.innerHeight);
+                mazeCamera.aspect = window.innerWidth / window.innerHeight;
+                mazeCamera.updateProjectionMatrix();
+            }
         });
 
-        // Init
+        // Init Game Settings & Engine
         renderBoard();
         setTimeout(updateEZMode, 500);
 
