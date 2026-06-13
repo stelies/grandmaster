@@ -7,6 +7,7 @@ To play the game immediately, click the live website link located on the right s
 
 This project is a stylized chess simulation where you face off against a built-in cpu opponent. The game focuses on visual presentation and audio to create a more grounded, high-stakes feeling during the match. 
 The entire game runs out of a single file, which you can find in this repository under the name `index.html`.
+You may also have the option to drop in an image file with "entity" in it's name for modification
 
 ## Features
 
