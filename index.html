@@ -1546,36 +1546,14 @@
                     group.add(body, head);
                     break;
                 }
-                // High-fidelity procedurally detailed Knight: base, neck-arch, snout, mane-spikes, and pointed ears
                 case 'N': {
-                    let base = new THREE.Mesh(new THREE.CylinderGeometry(0.18*PSCALE, 0.22*PSCALE, 0.2*PSCALE, 12), mat);
-                    base.position.y = 0.1*PSCALE;
-                    group.add(base);
-
-                    let neck = new THREE.Mesh(new THREE.BoxGeometry(0.16*PSCALE, 0.5*PSCALE, 0.22*PSCALE), mat);
-                    neck.position.set(-0.05*PSCALE, 0.4*PSCALE, 0);
-                    neck.rotation.z = -0.25; 
-                    group.add(neck);
-
-                    let snout = new THREE.Mesh(new THREE.BoxGeometry(0.32*PSCALE, 0.14*PSCALE, 0.16*PSCALE), mat);
-                    snout.position.set(0.08*PSCALE, 0.6*PSCALE, 0);
-                    snout.rotation.z = -0.4; 
-                    group.add(snout);
-
-                    for(let i=0; i<3; i++) {
-                        let spike = new THREE.Mesh(new THREE.ConeGeometry(0.06*PSCALE, 0.18*PSCALE, 4), accentMat);
-                        spike.position.set(-0.16*PSCALE, (0.3 + i*0.14)*PSCALE, 0);
-                        spike.rotation.z = -1.2; 
-                        group.add(spike);
-                    }
-
-                    let earL = new THREE.Mesh(new THREE.ConeGeometry(0.04*PSCALE, 0.15*PSCALE, 4), mat);
-                    earL.position.set(-0.06*PSCALE, 0.68*PSCALE, 0.06*PSCALE);
-                    earL.rotation.z = -0.1;
-                    let earR = new THREE.Mesh(new THREE.ConeGeometry(0.04*PSCALE, 0.15*PSCALE, 4), mat);
-                    earR.position.set(-0.06*PSCALE, 0.68*PSCALE, -0.06*PSCALE);
-                    earR.rotation.z = -0.1;
-                    group.add(earL, earR);
+                    let base = new THREE.Mesh(new THREE.CylinderGeometry(0.22*PSCALE, 0.26*PSCALE, 0.25*PSCALE, 10), mat);
+                    base.position.y = 0.125*PSCALE;
+                    let neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08*PSCALE, 0.18*PSCALE, 0.5*PSCALE, 8), mat);
+                    neck.position.y = 0.5*PSCALE; neck.rotation.z = 0.35;
+                    let head = new THREE.Mesh(new THREE.ConeGeometry(0.14*PSCALE, 0.35*PSCALE, 8), mat);
+                    head.position.set(0.12*PSCALE, 0.78*PSCALE, 0); head.rotation.z = -0.6;
+                    group.add(base, neck, head);
                     break;
                 }
                 case 'B': {
@@ -1608,58 +1586,23 @@
                     group.add(body, top);
                     break;
                 }
-                // Custom skinny, elegant tall King structure: slender profile, tiered textured pedestal, multiple accent spacer rings, sleek compact crown & detailed gothic finial cross
                 default: { 
-                    // Super tall, very slender double-cone cylinder body (taller than queen)
-                    let body = new THREE.Mesh(new THREE.CylinderGeometry(0.08*PSCALE, 0.14*PSCALE, 1.15*PSCALE, 16), mat);
-                    body.position.y = 0.575*PSCALE;
-                    group.add(body);
-
-                    // Multi-tiered pedestal base for immense texturing details
-                    let base1 = new THREE.Mesh(new THREE.CylinderGeometry(0.16*PSCALE, 0.22*PSCALE, 0.12*PSCALE, 16), mat);
-                    base1.position.y = 0.06*PSCALE;
-                    let base2 = new THREE.Mesh(new THREE.CylinderGeometry(0.13*PSCALE, 0.17*PSCALE, 0.08*PSCALE, 16), accentMat);
-                    base2.position.y = 0.16*PSCALE;
-                    group.add(base1, base2);
-
-                    // Multiple decorative spacer rings up the spine for rich structural texturing
-                    for(let i = 0; i < 4; i++) {
-                        let ringHeight = (0.32 + i * 0.22) * PSCALE;
-                        let ring = new THREE.Mesh(new THREE.TorusGeometry(0.11*PSCALE, 0.02*PSCALE, 8, 16), accentMat);
-                        ring.rotation.x = Math.PI / 2;
-                        ring.position.y = ringHeight;
-                        group.add(ring);
-                    }
-
-                    // Sleek, compact elegant crown (narrower and more elegant than queen)
-                    let crownBase = new THREE.Mesh(new THREE.CylinderGeometry(0.10*PSCALE, 0.09*PSCALE, 0.12*PSCALE, 12), mat);
-                    crownBase.position.y = 1.18*PSCALE;
-                    group.add(crownBase);
-
-                    // Tiny detail jewel spheres encrusting the crown rim
-                    for (let i = 0; i < 6; i++) {
-                        let angle = (i / 6) * Math.PI * 2;
-                        let jewel = new THREE.Mesh(new THREE.SphereGeometry(0.02*PSCALE, 6, 6), accentMat);
-                        jewel.position.set(Math.cos(angle)*0.10*PSCALE, 1.24*PSCALE, Math.sin(angle)*0.10*PSCALE);
-                        group.add(jewel);
-                    }
-
-                    // Fine gothic finial cross on top of the sleek crown
-                    let crossV = new THREE.Mesh(new THREE.BoxGeometry(0.025*PSCALE, 0.22*PSCALE, 0.025*PSCALE), accentMat);
-                    crossV.position.y = 1.34*PSCALE;
-                    let crossH = new THREE.Mesh(new THREE.BoxGeometry(0.12*PSCALE, 0.025*PSCALE, 0.025*PSCALE), accentMat);
-                    crossH.position.y = 1.29*PSCALE;
-                    
-                    // Finial top terminal bead
-                    let finialTop = new THREE.Mesh(new THREE.SphereGeometry(0.02*PSCALE, 6, 6), accentMat);
-                    finialTop.position.set(0, 1.45*PSCALE, 0);
-                    group.add(crossV, crossH, finialTop);
+                    let body = new THREE.Mesh(new THREE.CylinderGeometry(0.24*PSCALE, 0.32*PSCALE, 0.6*PSCALE, 12), mat);
+                    body.position.y = 0.3*PSCALE;
+                    let crown = new THREE.Mesh(new THREE.SphereGeometry(0.16*PSCALE, 10, 10), mat);
+                    crown.position.y = 0.66*PSCALE;
+                    let crossV = new THREE.Mesh(new THREE.BoxGeometry(0.06*PSCALE, 0.24*PSCALE, 0.06*PSCALE), accentMat);
+                    crossV.position.y = 0.92*PSCALE;
+                    let crossH = new THREE.Mesh(new THREE.BoxGeometry(0.18*PSCALE, 0.06*PSCALE, 0.06*PSCALE), accentMat);
+                    crossH.position.y = 0.88*PSCALE;
+                    group.add(body, crown, crossV, crossH);
                     break;
                 }
             }
             return group;
         }
 
+        // Generate tiny swords for the enemy pieces
         function makeEnemySword() {
             let group = new THREE.Group();
             let bladeMat = new THREE.MeshStandardMaterial({color:0x888888, metalness:0.5, roughness:0.5});
@@ -1769,7 +1712,7 @@
 
             document.getElementById('main-content').style.display = 'none';
             document.getElementById('rogue-container').style.display = 'block';
-            document.getElementById('rogue-hp-bars').innerHTML = '';
+            document.getElementById('rogue-hp-bars').innerHTML = ''; // Clear container
 
             rogueScene = new THREE.Scene();
             rogueScene.background = new THREE.Color(0x050001);
@@ -1820,13 +1763,15 @@
             rogueEntities = [];
             let kingPos = null;
             
+            // Loop OVER EVERY REMAINING ALIVE PIECE physically defined in `board` matrix
             for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
                 let p = board[r][c];
-                if(!p) continue; 
+                if(!p) continue; // Only process pieces that exist
                 
+                // Track where the player starts
                 if(p.type === 'K' && p.color === 'w') {
                     kingPos = new THREE.Vector3((c - 3.5) * CELL, 0, (r - 3.5) * CELL);
-                    continue; 
+                    continue; // Do not spawn a mesh for the player's own camera origin
                 }
                 
                 let mesh = makePieceMesh(p.type, ROGUE_COLORS[p.color]);
@@ -1839,8 +1784,10 @@
                 mesh.position.z = (r - 3.5) * CELL;
                 rogueScene.add(mesh);
 
+                // Setup Multi-Hit Mechanics
                 let maxHp = p.type === 'Q' ? 5 : (p.type === 'R' ? 4 : (p.type === 'N' || p.type === 'B' ? 3 : 2));
 
+                // Billboard Healthbar Creation (DOM overlaid)
                 let hpBar = document.createElement('div');
                 hpBar.className = 'absolute w-12 h-2 border border-black shadow-lg rounded transition-opacity pointer-events-none';
                 hpBar.style.backgroundColor = '#4a0505';
@@ -1871,6 +1818,13 @@
             rogueLoop();
         }
 
+        function rogueMouseMove(e) {
+            if(!rogueActive || document.pointerLockElement !== document.getElementById('rogue-canvas')) return;
+            rogueYaw -= e.movementX * 0.0025;
+            roguePitch -= e.movementY * 0.0025;
+            roguePitch = Math.max(-1.2, Math.min(1.2, roguePitch));
+        }
+
         function rogueAttack() {
             if(!rogueActive || swordSwingT > 0) return;
             swordSwingT = 1;
@@ -1882,6 +1836,7 @@
                 if(toEntity.length() > SWORD_RANGE) continue;
                 toEntity.normalize();
                 
+                // Multi-hit logic applied to targeted enemy piece
                 if(toEntity.dot(camDir) > SWORD_CONE) {
                     e.hp -= 1;
                     if(e.hp <= 0) {
@@ -1891,7 +1846,7 @@
                         playFleshCrunch();
                     } else {
                         playThud(true); 
-                        e.hpFill.style.backgroundColor = '#fbbf24'; 
+                        e.hpFill.style.backgroundColor = '#fbbf24'; // Flash yellow on hit
                         setTimeout(()=> { e.hpFill.style.backgroundColor = '#4ade80'; }, 200);
                     }
                 }
@@ -1922,6 +1877,7 @@
             if(!rogueActive || rogueWinPending) return;
             if(rogueEntities.length === 0) {
                 rogueWinPending = true;
+                // Give the player a moment to acknowledge the final kill before the win screen appears
                 setTimeout(() => {
                     if(!rogueActive) { rogueWinPending = false; return; }
                     exitRogueMode();
@@ -1960,6 +1916,7 @@
             rogueCamera.rotation.y = rogueYaw;
             rogueCamera.rotation.x = roguePitch;
 
+            // Player Sword swing animation
             if(swordSwingT > 0) {
                 swordSwingT = Math.max(0, swordSwingT - dt * 4);
                 rogueSword.rotation.x = 0.35 - Math.sin(swordSwingT * Math.PI) * 1.4;
@@ -1997,6 +1954,7 @@
             rogueCamera.position.x = Math.max(-bound, Math.min(bound, rogueCamera.position.x));
             rogueCamera.position.z = Math.max(-bound, Math.min(bound, rogueCamera.position.z));
 
+            // Royal Guard Final Duel Check
             if (rogueEntities.length === 1 && !playerBuffed) {
                 playerBuffed = true;
                 rogueHP += 10;
@@ -2011,6 +1969,7 @@
                 let e = rogueEntities[i];
                 if (e.dead) continue;
 
+                // Sync floating DOM healthbar to 3D mesh position
                 let screenPos = e.mesh.position.clone();
                 screenPos.y += 2.0; 
                 screenPos.project(rogueCamera);
@@ -2026,6 +1985,7 @@
                     e.hpFill.style.width = Math.max(0, (e.hp / e.maxHp) * 100) + '%';
                 }
 
+                // Enemy Sword animation
                 if(e.mesh.userData.swingT > 0) {
                     e.mesh.userData.swingT -= dt * 5;
                     e.mesh.userData.sword.rotation.x = Math.PI/3 - Math.sin(e.mesh.userData.swingT * Math.PI) * 1.5;
@@ -2033,6 +1993,7 @@
                     e.mesh.userData.sword.rotation.x = Math.PI/3;
                 }
 
+                // Flesh wall consumption
                 if(Math.abs(e.mesh.position.x) > bound || Math.abs(e.mesh.position.z) > bound) {
                     e.dead = true;
                     rogueScene.remove(e.mesh);
@@ -2044,6 +2005,7 @@
                 let nearest = null, nd = Infinity;
 
                 if (rogueEntities.length > 1) {
+                    // Phase: Battle Royale (They fight each other)
                     for(let o of rogueEntities) {
                         if(o === e || o.dead) continue;
                         let d = e.mesh.position.distanceTo(o.mesh.position);
@@ -2060,9 +2022,10 @@
                             e.mesh.lookAt(e.mesh.position.x + dir.x, e.mesh.position.y, e.mesh.position.z + dir.z);
                         }
 
+                        // Fight logic
                         if(nd < SWORD_RANGE * 0.8 && e.mesh.userData.swingT <= 0) {
                             e.mesh.userData.swingT = 1;
-                            if(Math.random() < 0.25) { 
+                            if(Math.random() < 0.25) { // Hit success 
                                 nearest.hp -= 1;
                                 if(nearest.hp <= 0) {
                                     nearest.dead = true;
@@ -2076,6 +2039,7 @@
                         }
                     }
                 } else {
+                    // Phase: Final Duel
                     nd = e.mesh.position.distanceTo(rogueCamera.position);
                     let dir = new THREE.Vector3().subVectors(rogueCamera.position, e.mesh.position).setY(0);
                     if(dir.lengthSq() > 0.0001) {
